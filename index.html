@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portafolio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0b0d10;
+    --bg-elev: #14171b;
+    --border: #262a30;
+    --text: #eef0f2;
+    --text-dim: #9aa2ac;
+    --accent: #ff6a3d;
+    --accent-dim: #7a3420;
+    --radius: 14px;
+  }
+  *{ box-sizing: border-box; }
+  html{ scroll-behavior: smooth; }
+  body{
+    margin:0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  a{ color: inherit; }
+
+  header.hero{
+    padding: 72px 24px 40px;
+    text-align:center;
+    border-bottom: 1px solid var(--border);
+    background:
+      radial-gradient(60% 100% at 50% 0%, rgba(255,106,61,0.12), transparent 70%),
+      var(--bg);
+  }
+  header.hero .eyebrow{
+    text-transform: uppercase;
+    letter-spacing: .18em;
+    font-size: 12px;
+    color: var(--accent);
+    font-weight: 700;
+    margin-bottom: 14px;
+  }
+  header.hero h1{
+    font-size: clamp(32px, 6vw, 56px);
+    margin: 0 0 14px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  header.hero p{
+    color: var(--text-dim);
+    font-size: 17px;
+    max-width: 620px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  nav.catnav{
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    display:flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 14px 20px;
+    background: rgba(11,13,16,0.85);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+    scrollbar-width: none;
+  }
+  nav.catnav::-webkit-scrollbar{ display:none; }
+  nav.catnav a{
+    flex: 0 0 auto;
+    padding: 9px 16px;
+    border-radius: 999px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    text-decoration: none;
+    white-space: nowrap;
+    transition: all .15s ease;
+  }
+  nav.catnav a:hover{ color: var(--text); border-color: #3a3f47; }
+
+  main{ max-width: 1180px; margin: 0 auto; padding: 10px 20px 80px; }
+
+  section.category{
+    padding: 56px 0 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  section.category:last-child{ border-bottom: none; }
+
+  .cat-head{
+    display:flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-bottom: 26px;
+  }
+  .cat-head h2{
+    font-size: clamp(22px, 3.4vw, 30px);
+    margin: 0;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .cat-count{
+    color: var(--text-dim);
+    font-size: 13.5px;
+    margin-top: 4px;
+    display:block;
+  }
+  .drive-link{
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    border-radius: 999px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    font-size: 13.5px;
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--text);
+    transition: all .15s ease;
+    flex: 0 0 auto;
+  }
+  .drive-link:hover{ border-color: var(--accent); color: var(--accent); }
+
+  h3.subhead{
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: var(--text-dim);
+    margin: 30px 0 16px;
+    font-weight: 700;
+  }
+
+  .photo-grid{
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+  }
+  .photo-grid figure{
+    margin:0;
+    aspect-ratio: 4/3;
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    cursor: zoom-in;
+    position: relative;
+  }
+  .photo-grid img{
+    width:100%; height:100%;
+    object-fit: cover;
+    display:block;
+    transition: transform .35s ease;
+    background: var(--bg-elev);
+  }
+  .photo-grid figure:hover img{ transform: scale(1.06); }
+
+  .video-grid{
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+    gap: 16px;
+  }
+  .video-card{
+    border-radius: var(--radius);
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: var(--bg-elev);
+  }
+  .video-card .frame-wrap{
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16/9;
+    background:#000;
+  }
+  .video-card iframe{
+    position:absolute; inset:0;
+    width:100%; height:100%;
+    border:0;
+  }
+  .video-card .label{
+    padding: 10px 14px;
+    font-size: 13px;
+    color: var(--text-dim);
+    font-weight: 500;
+  }
+
+  /* lightbox */
+  #lightbox{
+    position: fixed; inset:0;
+    background: rgba(4,5,6,0.92);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index: 100;
+    padding: 30px;
+  }
+  #lightbox.open{ display:flex; }
+  #lightbox img{
+    max-width: 92vw;
+    max-height: 88vh;
+    border-radius: 8px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  }
+  #lightbox .close{
+    position: absolute;
+    top: 22px; right: 26px;
+    font-size: 30px;
+    color: #fff;
+    cursor: pointer;
+    opacity: .8;
+    line-height:1;
+  }
+  #lightbox .close:hover{ opacity:1; }
+
+  footer{
+    text-align:center;
+    padding: 40px 20px 60px;
+    color: var(--text-dim);
+    font-size: 13px;
+  }
+
+  @media (max-width: 560px){
+    header.hero{ padding: 52px 18px 32px; }
+    section.category{ padding: 40px 0 16px; }
+    .video-grid{ grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="eyebrow">Portafolio de proyectos</div>
+  <h1>Mecanismos &amp; Estructuras Especiales</h1>
+  <p>Selección de fotos y videos de nuestros proyectos: displays, mecanismos y montajes especiales, movimiento de pantalla, tijeras hidráulicas y plataformas giratorias.</p>
+</header>
+
+<nav class="catnav" id="catnav"></nav>
+
+<main id="main"></main>
+
+<div id="lightbox">
+  <span class="close" id="lightboxClose">&times;</span>
+  <img id="lightboxImg" src="" alt="">
+</div>
+
+<footer>Portafolio construido a partir del contenido alojado en Google Drive.</footer>
+
+<script>
+// Helpers to build Drive URLs from file IDs
+const imgUrl  = (id, w) => `https://lh3.googleusercontent.com/d/${id}=w${w||1000}`;
+const vidUrl  = (id) => `https://drive.google.com/file/d/${id}/preview`;
+const folderUrl = (id) => `https://drive.google.com/drive/folders/${id}`;
+
+const CATEGORIES = [
+  {
+    key: 'display',
+    title: 'Display',
+    folder: '12gHudw9lfltuMP22a89m3FSrShtheCkD',
+    photos: ['1vxcfImY48-nONT7StjoXTVr9HcdwN3eF','187FAw58ODUKUTpuCP0tWv6qOmcSXHpAS','1A3m3VuWsrE3rP4M019HR4574oWzHoehG','120msXQwwM_ZyP3WfLDVvXOM7lPvACp4K','1rDYGyftSKH_h6LsMkDZci43we0fS6OPa','19XlWgcg0BBO9-DNNlyzwkjCTzf0scReM','1SjSd9HiSMMLTSZb_SJnj68UsOsemjdsu','1zZn6FxMMEvKP0N94xDC9LKLZZRecXnod','1xfA0zOQg8nQC8NEcg99hhGTdRRlR9aYA'],
+    videos: []
+  },
+  {
+    key: 'mecanismos',
+    title: 'Mecanismos especiales',
+    folder: '1RN52UVDpiF32si_iCLQY3zt6bNreWt5V',
+    photos: ['1a2NVhdHtnYYfJIVkVEu_k70ASHAQHJpj','1CCG6gLeUVxm7CE_qkqzbO24u3d_BqytH','18ayq4yRtwD3TDhRJV2jPRuCvnw-bfaY5','1Hy15ANxsYQ2DrKVa4svUW4AqLlLBsfl0','1OuH90UPdABT2h-vp1hFxlsiddpu3ELrN','1r3GcbHajwuP9WiCkbJ3OSNlHPYUNvvEA','1wWUV5SkNOqYAESq-wbf2fUcnP_4roAaS','17yN2_5GdqW_sz24g6tP_vfrPeDCV0IlZ','14hj9WMib0Z90iEgSakF0pso8KRrS3vQT','1GTtSLFGxBF0dNBoWkaCgnR4lywOV7VsK','1j45LjgMwQuO6XXnWOrsgrWt7dbsXkOyG'],
+    videos: ['1GwsgoOdQrGL1HSyIDmAU_KXh3aWbF79f','10qdGs58EBbdUU0wAAgp0qU_k7BQKBTg1','1zBg846U2PxyCXAZGU4lsvCXY85sHp2v7','171REXmDlillN486LnF2B82ld6NcQm0ab','12I6NA6-4PnJS5-DJEhvQ0Mf9XQ9TQqPY','1ww-PFXtLBYUPZQBNeKlnMeDLyleos-tx','1prT2VCtiQxIDb294xJFPfT0rrQp8kuUP','1zD2yXsr7cGwnim1j2MKhsDEpyHgJVSh9'],
+    videosTotal: 39
+  },
+  {
+    key: 'montajes',
+    title: 'Montajes especiales',
+    folder: '18wxwIjwwRtQVgGmFozit8Mj-Z2zdakkH',
+    photos: ['1DdZX3iCI_bcSRVLGwqsuNzwP_iiD0e73','164uZCES2IkDsz3AdAKedtbsz5kG26gV3','1NZb5m2lV8gfiCIZW6zF6pOJk561cgofm','1eqjlEG4-WDiKFXgbRA67YC55ynaV3n77','1xxVH1qdiwQ2npatLMZ3Apk8Dz9OliIR0','1kZupUXaKmcLbucE6EVxpjy-dusb4xYyJ','1GMMq35wwDNRfGuURFfI0Y_EHZ34ZFuuy','1fdqkSEbYq0Ji6X-TvXjDagad7SSZnhpX'],
+    photosTotal: 24,
+    videos: ['12aTuRT4jcrbh71VE6eUSEGWvIk1VkMyg','1kgP-UZBcOOcpTNorIZ3AjmvmJWfaRb9D']
+  },
+  {
+    key: 'pantalla',
+    title: 'Movimiento de Pantalla',
+    folder: '1xCx8cREvy019tBvOf1VHMrPLHtrrxB9H',
+    photos: ['1C6n6r692NqXbjRmLZqxEx54ig4kvqMck','1HSosR3w5ViQ5EC_2etcP77-ilJPZhHwe'],
+    videos: ['1pl2_7ASOvuUXEw-D3Wx4gSgVtjsLE92V','1OEIzfP1XYzDa-cYEuVUhTajGDPkrSxZu','1b5Dr6QVGBBY1Vvcf3LlXCz9ZWtVKuY9D','1BZxdH_bJgcMAGReB6cRTqtY_8cQZ4kIS','1l93K_YOLgaWY2VuVgtiEbDOR8wXDDaAi','1swzd6FJ39EqD4zpUBC3LQ7Kk1tN_Efl7'],
+    videosTotal: 11
+  },
+  {
+    key: 'tijeras',
+    title: 'Scissor Lifts : Tijeras Hidráulicas',
+    folder: '1XuDtRpyDEDf0wPZHtwxybbON-IrTe4py',
+    photos: ['1kgVTlyS5OkavxALquFBXeFu7e_myDiFz','1yMsobmdETX2JN3_kBY369pn4_-3b_1MG','1M7VQoAoaDoQRQdG3t4irTUDD7exonmO9','1me5PZQhGA4541HSkMMVSP_hb81o-GPFD','1nOgCrf1VAH5oejM36XIXnfUItu7TPywa','11-1HyPAy5AJRqGNQnxdHWGnCsfr-Epse','1QLqPjehR-r1b2XfFmJnHHXI8aRLKV5Bj','1-ipOkQRzp9J4H_-UkaIcdIm_zswkaSkD','1LMfCStmMWJu4-Mz0VznCC7BfJ5j7aW1f','1SqrWpWv-d8mFm_rAUYCdGBuBqDC_3nkn'],
+    videos: ['194vXIRnMTeItZhUCUsXhUAhizq07r8kJ','14fmt1GURyDyL2JtGho1P23_DIAloNJNA','1jTn91xlp27UZey8sisB5b_Fn6JSD6W2I','17nkDS9Ql2Bbl2KdMPCof7DMy8yuWm2fh','1j3q3-MUOTJMaxNIQF1LO_cPrBwBSA3Pc','1XIC0si59Q6Mu8piRpfvAbG3CoTVnhTls','16Ae14Kw8J2DCubqtTcSBg90kHWsbU25i','11EHiyTpCkXFN8djRzDxtDfKME34tQtSI'],
+    videosTotal: 16
+  },
+  {
+    key: 'giratorias',
+    title: 'Turntables : Giratorias',
+    folder: '1GcjrXtUuKyp0XvvXQPL4JVlKwT72vSbh',
+    photos: ['11l75zhcAI2cAv0G0-ntUkgSSUawKAzhB','1fnE5NyzcpEdA_rOc-it2HqnuqOfKjfti','1ZMCyVnQk4gTEBzJROYv7WJavCJHI9oez','1tUgkS8QZ-_B1Fnt7uEBlG9IkbBVeUex_','18ZEomfEExPKMJMI48Us_Wlae4A9AtOes','1KbAbvnNAYxNLH9mewwg657cytq309Ync','1k4lFYSElIo-XNPRfsuAVT-mSP_tICRah','1QKSYLTEi7m4NWCDk-zCLQFMkYqzWBod7','1fKeWPOlesYz3a_x2yCq_h293oyXTzNBn','1xV28KMzR08hMYMDSwDfOkAdR95Dr0i4D'],
+    videos: ['1boILj-axW3Xg5Cr_vPzV8VT0JTKeIHj9','1En45neoWse9r351J740lyLchrGT5N7iU','1OBYMkLG5Fw7Tit_MzXRVr_5goJyEqwxO','1hhb4ZWEITvHwzj3IeyGob8x4jdssG5nQ','1vYAlHIqtxxC2igXr129UqErqKG50T6Sf','1s_fsvpwoK0iElB5CxdXS_6e_qIzsEftw','1fz_jkb36JS3aqr5TEnyhysBEsFCpqztx'],
+    videosTotal: 14
+  }
+];
+
+const navEl = document.getElementById('catnav');
+const mainEl = document.getElementById('main');
+
+CATEGORIES.forEach(cat => {
+  // nav pill
+  const a = document.createElement('a');
+  a.href = `#${cat.key}`;
+  a.textContent = cat.title;
+  navEl.appendChild(a);
+
+  // section
+  const section = document.createElement('section');
+  section.className = 'category';
+  section.id = cat.key;
+
+  const totalPhotos = cat.photosTotal || cat.photos.length;
+  const totalVideos = cat.videosTotal || cat.videos.length;
+
+  section.innerHTML = `
+    <div class="cat-head">
+      <div>
+        <h2>${cat.title}</h2>
+        <span class="cat-count">${totalPhotos} fotos · ${totalVideos} videos en Drive</span>
+      </div>
+      <a class="drive-link" href="${folderUrl(cat.folder)}" target="_blank" rel="noopener">Ver todo en Drive &rarr;</a>
+    </div>
+  `;
+
+  if (cat.photos.length){
+    const h = document.createElement('h3');
+    h.className = 'subhead';
+    h.textContent = 'Fotos destacadas';
+    section.appendChild(h);
+
+    const grid = document.createElement('div');
+    grid.className = 'photo-grid';
+    cat.photos.forEach(id => {
+      const fig = document.createElement('figure');
+      fig.innerHTML = `<img loading="lazy" src="${imgUrl(id, 500)}" data-full="${imgUrl(id, 1600)}" alt="${cat.title}">`;
+      fig.addEventListener('click', () => openLightbox(fig.querySelector('img').dataset.full));
+      grid.appendChild(fig);
+    });
+    section.appendChild(grid);
+  }
+
+  if (cat.videos.length){
+    const h = document.createElement('h3');
+    h.className = 'subhead';
+    h.textContent = 'Videos destacados';
+    section.appendChild(h);
+
+    const grid = document.createElement('div');
+    grid.className = 'video-grid';
+    cat.videos.forEach((id, i) => {
+      const card = document.createElement('div');
+      card.className = 'video-card';
+      card.innerHTML = `
+        <div class="frame-wrap">
+          <iframe src="${vidUrl(id)}" loading="lazy" allow="autoplay" allowfullscreen></iframe>
+        </div>
+        <div class="label">${cat.title} · Video ${i+1}</div>
+      `;
+      grid.appendChild(card);
+    });
+    section.appendChild(grid);
+  }
+
+  mainEl.appendChild(section);
+});
+
+// lightbox behavior
+const lightbox = document.getElementById('lightbox');
+const lightboxImg = document.getElementById('lightboxImg');
+function openLightbox(src){
+  lightboxImg.src = src;
+  lightbox.classList.add('open');
+}
+function closeLightbox(){
+  lightbox.classList.remove('open');
+  lightboxImg.src = '';
+}
+document.getElementById('lightboxClose').addEventListener('click', closeLightbox);
+lightbox.addEventListener('click', (e) => { if (e.target === lightbox) closeLightbox(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeLightbox(); });
+</script>
+
+</body>
+</html>
