@@ -138,10 +138,10 @@
   .cat-head{
     display:flex;
     justify-content: space-between;
-    align-items: flex-end;
+    align-items: center;
     flex-wrap: wrap;
     gap: 12px;
-    padding: 30px 24px 16px;
+    padding: 20px 24px;
   }
   .cat-head h2{
     font-size: clamp(19px, 2.8vw, 25px);
@@ -200,10 +200,40 @@
 
   .cell-video{ background:#000; }
   .cell-video iframe{
-    position:absolute; inset:0;
-    width:100%; height:100%;
+    position:absolute;
     border:0;
+    /* El tamaño/posición real (para que el video "cubra" la celda como
+       object-fit:cover, en vez de quedar con barras de letterbox) se
+       calcula por video en JS y se aplica inline — estos son solo los
+       valores por defecto de respaldo. */
+    top:0; left:0; width:100%; height:100%;
   }
+  /* Capa de click sobre el iframe: con controls=0 el player de Vimeo no
+     dibuja NINGUNA interfaz propia, así que este es el único botón de
+     play visible en el estado de previsualización — nada de barra de
+     controles, título o marca de Vimeo tapando el video. Un solo click
+     alterna play/pause a través del SDK de Vimeo. */
+  .video-click-layer{
+    position:absolute; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+    background: transparent;
+  }
+  .video-play-badge{
+    width:52px; height:52px;
+    border-radius:50%;
+    background: rgba(10,10,10,0.55);
+    display:flex; align-items:center; justify-content:center;
+    transition: opacity .15s ease;
+  }
+  .video-play-badge::after{
+    content:'';
+    margin-left:4px;
+    border-style:solid;
+    border-width:9px 0 9px 15px;
+    border-color:transparent transparent transparent #fff;
+  }
+  .video-click-layer.is-playing .video-play-badge{ opacity:0; pointer-events:none; }
 
   .c-sm{ grid-column: span 1; grid-row: span 1; }
   .c-wide{ grid-column: span 2; grid-row: span 1; }
@@ -260,7 +290,7 @@
   @media (max-width: 620px){
     :root{ --cols: 2; }
     header.hero{ padding: 18px 18px 14px; }
-    .cat-head{ padding: 24px 16px 12px; }
+    .cat-head{ padding: 16px 16px; }
     /* En celular el grid ya solo tiene 2 columnas, así que cualquier
        celda de video (que siempre abarca 2 columnas) ocupa el ancho
        completo de la fila de forma natural — no hace falta forzarlo. */
@@ -290,14 +320,72 @@
 
 <footer>Portafolio construido a partir del contenido alojado en Google Drive y Vimeo.</footer>
 
+<script src="https://player.vimeo.com/api/player.js"></script>
 <script>
 // Helpers para construir las URLs de embed. Las fotos siguen alojadas
 // en Google Drive. Los videos ahora están en Vimeo — son videos "solo
 // con el link" (no listados/privados), así que cada uno necesita su
 // propio hash de acceso además del id numérico para poder embeberse.
 const imgUrl    = (id, w) => `https://lh3.googleusercontent.com/d/${id}=w${w||1000}`;
-const vidUrl    = (id, h) => `https://player.vimeo.com/video/${id}?h=${h}&title=0&byline=0&portrait=0&dnt=1`;
+// controls=0: sin ninguna barra de controles nativa de Vimeo (ni
+// siquiera el botón de play) — el botón de play propio (dibujado en
+// CSS) y el play/pause se manejan enteramente con el SDK de Vimeo.
+const vidUrl    = (id, h) => `https://player.vimeo.com/video/${id}?h=${h}&title=0&byline=0&portrait=0&dnt=1&controls=0`;
 const folderUrl = (id) => `https://drive.google.com/drive/folders/${id}`;
+
+// Relación de aspecto (ancho/alto) de cada tamaño de celda del mosaico,
+// usada para calcular cómo debe escalarse el iframe de un video para
+// cubrir toda la celda sin dejar franjas negras de letterbox (el player
+// de Vimeo, por defecto, mantiene la proporción del video real dentro
+// de la caja que se le da, así que si esa proporción no coincide con la
+// de la celda, el video queda "flotando" chico en el centro).
+const SIZE_RATIOS = { sm: 1, wide: 2, tall: 0.5, lg: 1, vtall: 2 / 3 };
+
+// Calcula el estilo inline (posición + tamaño en %) que hay que darle
+// al iframe para que el video cubra toda la celda — el mismo efecto
+// que object-fit:cover, pero aplicado a mano porque esa propiedad CSS
+// no tiene efecto sobre el contenido de un iframe.
+function videoCoverStyle(item){
+  const containerRatio = SIZE_RATIOS[item.size] || 1;
+  if (!item.natW || !item.natH) return '';
+  const videoRatio = item.natW / item.natH;
+  const scale = videoRatio / containerRatio;
+  if (scale >= 1){
+    const wPct = scale * 100;
+    const leftPct = (100 - wPct) / 2;
+    return `width:${wPct}%; height:100%; top:0; left:${leftPct}%;`;
+  }
+  const hPct = 100 / scale;
+  const topPct = (100 - hPct) / 2;
+  return `width:100%; height:${hPct}%; top:${topPct}%; left:0;`;
+}
+
+// Conecta el SDK de Vimeo a un iframe recién insertado: hace que el
+// botón de play propio (dibujado en CSS, ver .video-play-badge) sea lo
+// único visible antes de darle play, y que un click alterne play/pause.
+// Si el script del SDK no llegó a cargar (sin red, bloqueado, etc.), se
+// quita la capa de click y el iframe queda con su comportamiento nativo
+// como respaldo, en vez de dejar el video sin forma de reproducirse.
+function initVimeoPlayer(cellEl){
+  const iframe = cellEl.querySelector('iframe');
+  const layer = cellEl.querySelector('.video-click-layer');
+  if (typeof Vimeo === 'undefined' || !Vimeo.Player){
+    if (layer) layer.remove();
+    return;
+  }
+  const player = new Vimeo.Player(iframe);
+  let playing = false;
+  const setPlaying = (v) => {
+    playing = v;
+    layer.classList.toggle('is-playing', v);
+  };
+  layer.addEventListener('click', () => {
+    (playing ? player.pause() : player.play()).catch(() => {});
+  });
+  player.on('play', () => setPlaying(true));
+  player.on('pause', () => setPlaying(false));
+  player.on('ended', () => setPlaying(false));
+}
 
 // Separa un item de la lista "id/hash" de Vimeo en sus dos partes.
 function parseVimeoRef(ref){
@@ -329,9 +417,11 @@ const PALETTE = [
 // patrones de variedad dentro de cada grupo de orientación.
 const PORTRAIT_PHOTO_SIZES = ['tall', 'tall', 'lg', 'tall'];
 const OTHER_PHOTO_SIZES    = ['sm', 'wide', 'sm', 'lg', 'sm', 'wide', 'sm', 'sm', 'lg', 'wide'];
-// Para las celdas decorativas de color (sin contenido real, pueden ser
-// cualquier forma libremente).
-const COLOR_SIZES = ['lg', 'sm', 'wide', 'tall', 'sm', 'lg'];
+// Para las celdas decorativas de color: mismo tamaño chico (1x1)
+// siempre — antes variaban entre lg/wide/tall y quedaban recuadros
+// demasiado grandes en el mosaico. La cantidad de bloques de color no
+// cambia (sigue uno cada 3 elementos, ver buildItems); solo su tamaño.
+const COLOR_SIZES = ['sm'];
 
 // Determina la orientación real de una foto cargando la imagen y
 // leyendo sus dimensiones naturales, en vez de asumir un patrón fijo.
@@ -387,64 +477,88 @@ function measureVimeoOrientation(id, h){
 
 const CATEGORIES = [
   {
-    key: 'display',
-    title: 'Display',
-    folder: '12gHudw9lfltuMP22a89m3FSrShtheCkD',
-    photos: ['1vxcfImY48-nONT7StjoXTVr9HcdwN3eF','187FAw58ODUKUTpuCP0tWv6qOmcSXHpAS','1A3m3VuWsrE3rP4M019HR4574oWzHoehG','120msXQwwM_ZyP3WfLDVvXOM7lPvACp4K','1rDYGyftSKH_h6LsMkDZci43we0fS6OPa','19XlWgcg0BBO9-DNNlyzwkjCTzf0scReM','1SjSd9HiSMMLTSZb_SJnj68UsOsemjdsu','1zZn6FxMMEvKP0N94xDC9LKLZZRecXnod','1xfA0zOQg8nQC8NEcg99hhGTdRRlR9aYA'],
-    videos: []
-  },
-  {
-    key: 'mecanismos',
-    title: 'Mecanismos especiales',
-    folder: '1RN52UVDpiF32si_iCLQY3zt6bNreWt5V',
-    photos: ['1a2NVhdHtnYYfJIVkVEu_k70ASHAQHJpj','1CCG6gLeUVxm7CE_qkqzbO24u3d_BqytH','18ayq4yRtwD3TDhRJV2jPRuCvnw-bfaY5','1Hy15ANxsYQ2DrKVa4svUW4AqLlLBsfl0','1OuH90UPdABT2h-vp1hFxlsiddpu3ELrN','1r3GcbHajwuP9WiCkbJ3OSNlHPYUNvvEA','1wWUV5SkNOqYAESq-wbf2fUcnP_4roAaS','17yN2_5GdqW_sz24g6tP_vfrPeDCV0IlZ','14hj9WMib0Z90iEgSakF0pso8KRrS3vQT','1GTtSLFGxBF0dNBoWkaCgnR4lywOV7VsK','1j45LjgMwQuO6XXnWOrsgrWt7dbsXkOyG'],
-    videos: ['1225732427/8cd5408d74','1225732428/15057046dc','1225732426/40564d9ae6','1225732429/67bc75cf9e','1225732444/0660f60c17','1225732501/8c9a862563','1225732702/9ef34ba0cc','1225732812/a5956142de','1225732817/95090291bb','1225732914/aa6773bf98','1225732921/973f2b210b','1225733087/0f2c676c96','1225733264/b76b1f7ad8','1225733581/1e23eb31f3','1225733646/de367409ac','1225733699/c8994fcdd0','1225733848/db63c3d144']
-  },
-  {
-    key: 'montajes',
-    title: 'Montajes especiales',
-    folder: '18wxwIjwwRtQVgGmFozit8Mj-Z2zdakkH',
-    photos: ['1DdZX3iCI_bcSRVLGwqsuNzwP_iiD0e73','164uZCES2IkDsz3AdAKedtbsz5kG26gV3','1NZb5m2lV8gfiCIZW6zF6pOJk561cgofm','1eqjlEG4-WDiKFXgbRA67YC55ynaV3n77','1xxVH1qdiwQ2npatLMZ3Apk8Dz9OliIR0','1kZupUXaKmcLbucE6EVxpjy-dusb4xYyJ','1GMMq35wwDNRfGuURFfI0Y_EHZ34ZFuuy','1fdqkSEbYq0Ji6X-TvXjDagad7SSZnhpX'],
-    photosTotal: 24,
-    videos: ['1225735133/3901b04531','1225735188/1320076e8d']
-  },
-  {
-    key: 'pantalla',
-    title: 'Movimiento de Pantalla',
-    folder: '1xCx8cREvy019tBvOf1VHMrPLHtrrxB9H',
-    photos: ['1C6n6r692NqXbjRmLZqxEx54ig4kvqMck','1HSosR3w5ViQ5EC_2etcP77-ilJPZhHwe'],
-    videos: ['1225738987/2667553def','1225738985/661e48a8dc','1225738988/13742df713','1225738986/b8f81106ba','1225739205/bf812141a5','1225739407/21f4b34327','1225739457/a98504e62c','1225739481/78aa3f868a','1225740082/ce1c7e3dce','1225740146/ddef7d75dc','1225740272/8f3a4fba16']
-  },
-  {
     key: 'tijeras',
     title: 'Scissor Lifts : Tijeras Hidráulicas',
-    folder: '1XuDtRpyDEDf0wPZHtwxybbON-IrTe4py',
-    photos: ['1kgVTlyS5OkavxALquFBXeFu7e_myDiFz','1yMsobmdETX2JN3_kBY369pn4_-3b_1MG','1M7VQoAoaDoQRQdG3t4irTUDD7exonmO9','1me5PZQhGA4541HSkMMVSP_hb81o-GPFD','1nOgCrf1VAH5oejM36XIXnfUItu7TPywa','11-1HyPAy5AJRqGNQnxdHWGnCsfr-Epse','1QLqPjehR-r1b2XfFmJnHHXI8aRLKV5Bj','1-ipOkQRzp9J4H_-UkaIcdIm_zswkaSkD','1LMfCStmMWJu4-Mz0VznCC7BfJ5j7aW1f','1SqrWpWv-d8mFm_rAUYCdGBuBqDC_3nkn'],
+    folder: '1zTfvshRDpsnZCkn6mAltPPECq7OSoWBw',
+    photos: ['1tDDsdPwqixiyY2TYOd_rHymRcAJHH8lW','1SVJCapMJWC2yll6NxjrU4Cv9rgUgW0uB','1Yt8v12rsVDWrN3EXki9HHIzXwmGFLIb-','1FuFC_xJJXWDdxo2CY9DfzaIEXJgPsWpd','1O9aTPbnMqHNeHaxQFYN5PUg3emu-y72p','1fFmFXq2RQTQIfIpjMA3O0qQ_FtBMyvFL','1qSYg5JSw8Ua0gUYhvDwi5drcaQyIJO_N','1wcZsRAxyPmFv32lLZCHfYskBtgYRx37S','1wk6_XaujV5gMl1ecbZgJxifqcjSc52BS','1NiFpPMhXCdOduK6SGI7WNzizd_QPzYJ7'],
     videos: ['1225740661/37a944d93a','1225740801/969f6469b1','1225740808/845af74d6e','1225740900/91333ef5df','1225741057/710b516c88','1225741498/cbf8ec13be','1225741525/1431919e1d','1225741656/cad399b4a4','1225742356/a210f0951d','1225742361/71fe8372ad','1225743151/22718a9b6a']
   },
   {
     key: 'giratorias',
     title: 'Turntables : Giratorias',
-    folder: '1GcjrXtUuKyp0XvvXQPL4JVlKwT72vSbh',
-    photos: ['11l75zhcAI2cAv0G0-ntUkgSSUawKAzhB','1fnE5NyzcpEdA_rOc-it2HqnuqOfKjfti','1ZMCyVnQk4gTEBzJROYv7WJavCJHI9oez','1tUgkS8QZ-_B1Fnt7uEBlG9IkbBVeUex_','18ZEomfEExPKMJMI48Us_Wlae4A9AtOes','1KbAbvnNAYxNLH9mewwg657cytq309Ync','1k4lFYSElIo-XNPRfsuAVT-mSP_tICRah','1QKSYLTEi7m4NWCDk-zCLQFMkYqzWBod7','1fKeWPOlesYz3a_x2yCq_h293oyXTzNBn','1xV28KMzR08hMYMDSwDfOkAdR95Dr0i4D'],
+    folder: '1CO02yxVgJj8JZfk9R6Ygb6kHn_mQmDnz',
+    photos: ['1fdqW5pH3WeECYC4mFJKavyCwpa-Gl6B9','1xN3vQ5nPbB2EfCyTZhnInC09rnj2-EOh','1wfQ8pecerV_2vRqsVgckRHd1DRUPZ1PC','1-4P9YrKusvIf_uww19GRnJA5n1tzwX6w','1TVdjJr3yzlZlEjSSvvCNU1Fk6FD6lxVn','1JFk6XhBIcSP06ibAI6HLMXhN4MxvWrON','1v2zMqC1H3qBN2gojfnc2PYBUJ3g-_UCs','1NLAq0oSHpcvDt-VteyOzDiBjvNjMtChY','1bnmAvE22Pm0-Culrcb6NUL4cVAnbKcIA','14yj6OBAgwXO2h8axofCCn2M43gq6ilTe','1WWlodwxsqiivP6Z8846IT7hrDrtQbFVj','164M_uMBD83nOuDPpcDmOk-ouRRNn6Muh'],
     videos: ['1225744865/b3381b017a','1225745621/18bbf58c06','1225745842/7d6451128e','1225745914/6091336059','1225746007/a62d9b3f9d','1225746076/f71c0c8b93','1225746206/f588e41aa9']
+  },
+  {
+    key: 'display',
+    title: 'Display',
+    folder: '1OYnKPvENwvdJTw7VtgRb57ITAtkOAokV',
+    photos: ['1BTo_Kg4jC5PVW2JXYZKrtSWK-5j8ufrz','18IM-HwCTnGlwStvBHxeSdRCV_kD6NW2M','1TqlZAE1JFE1Ka02Dkf8TiUyg4rGEyIqr','1wn1qOjj2snbTg2UanNYgOJvV-Xa6fYrz','1mSzUeIaGUSVr3jzuz6OrdZXk_6CX_yUS','1vNaLwo2FED58owa9AWT7MDk1Lx19KaoD','1jR5ZYuwO4TzvHTw7B9pca-pnFJ2XFBZh','1csRIz27B3FOCPGZoyBiBVtEtegXNYT2r','1aaDO-E4mRb-HxkppKx4JJPkHSnqjPayq','1aXlgofo_kgiNbFxu65CU9Ro7emRQSMCU','1QJxETocSqZ7MeXBV5eN7X8G0flhid_IQ','1KuUBJyhR_Gji-uAj-msewy18Hdpy45gl','1JmDHJxIlshIY9E5hnTrKC7sLMzXXHang','1HR7WKiZyD_siTOYRhYR7Cw8ymVnKkwOy','14_vpsDPDht4tm6m6f2ZgCsT9OfWrReNX','14F219Ecw2K63Hnr-wzAhtBzwGhskkQIQ','1yJdAaGi0fZJ67-yW4moZpJP9nkYh1Pjs'],
+    videos: []
+  },
+  {
+    key: 'pantalla',
+    title: 'Movimiento de Pantalla',
+    folder: '1JWUfmEARcy2ZVvexVfPReG_MrduvzI7A',
+    photos: ['1QdJ2Or0PoK3b8fsz_YSTLTd3edN5fbww','1S8TcHQB3X6zFisifCXka2sWKvVdSQ_B2'],
+    videos: ['1225738987/2667553def','1225738985/661e48a8dc','1225738988/13742df713','1225738986/b8f81106ba','1225739205/bf812141a5','1225739407/21f4b34327','1225739457/a98504e62c','1225739481/78aa3f868a','1225740082/ce1c7e3dce','1225740146/ddef7d75dc','1225740272/8f3a4fba16']
+  },
+  {
+    key: 'mecanismos',
+    title: 'Mecanismos especiales',
+    folder: '149CNN5XzVtCi8ObTKcWftmcMKLN57lr7',
+    photos: ['1J1mMTYcTqS7iYtf1vRtVIBs_XKwJ7BzZ','1MoqbONvgYti80ZJ9NJv4gbeZn92NvZrB','11BocF4uwBcomAS4D1XZPZ7B1ja_2oRwJ','11KjLZOvc6vzzweT0ejPV0iSKIFJyDAY7','1jqWE230rid_tNjNZHbZepFZnPTdBecxW','1Tn6qyGDhPN-GcbWu5TKGC_p_DurvsOoR','1g4571ArrDPMWN0sHeyb-0KGh9Bkduq02','1Z2h0C4s2lGpQw2Y7aefmRWr3qShzXH7I','1abaFb-VrGKDc2S72l73estqSDeQt2GRa'],
+    videos: ['1225732427/8cd5408d74','1225732428/15057046dc','1225732426/40564d9ae6','1225732429/67bc75cf9e','1225732444/0660f60c17','1225732501/8c9a862563','1225732702/9ef34ba0cc','1225732812/a5956142de','1225732817/95090291bb','1225732914/aa6773bf98','1225732921/973f2b210b','1225733087/0f2c676c96','1225733264/b76b1f7ad8','1225733581/1e23eb31f3','1225733646/de367409ac','1225733699/c8994fcdd0','1225733848/db63c3d144']
+  },
+  {
+    key: 'montajes',
+    title: 'Montajes especiales',
+    folder: '1RuVDIRnJfNc6EIehDMlfmBcFVIFaxJeI',
+    photos: ['1kSTlbvugq0DrjP-3_ksCkO-MAez_TcyE','1_lu2r5Q8r0CZqfquyIMOlsvwcVMD8FyT','1MHOKQKjoAuO-fP2mzuu4Xt9TLF6vQyXl','1ERXofXLZU0aiID7-Qp5UHU1oM1kLOMrw','116jbV1yyZIhCvfnWHgOtdQ13rD9c-8qd','1sL1Y0OB0gK9gQp5uM64p3txmMsPGLmjg','1ephHVWset0YaQVRfmnL5jkYRK4Zq46oG','11UhnnymWHn07-SVKIhoQHKB4w7BU8v_E','196Jk06Lm80sPu7oqKBNOdXOxkL1J8koK','1l0pmZzwhP1SSfZqPxLRGDjmNR2AyU-sS','1kuktmV1bIW_wG3fYYOyDI2HxaQwcPzFv','1uf2ppO_Ba1Crk55wNna2RCocTnV8fryu'],
+    videos: ['1225735133/3901b04531','1225735188/1320076e8d']
   }
 ];
 
 const navEl = document.getElementById('catnav');
 const mainEl = document.getElementById('main');
 
+// Reparte dos listas entre sí de forma proporcional (no solo "una y
+// una" — eso solo funciona si ambas miden lo mismo). Por ejemplo, con 9
+// fotos y 17 videos, cada foto va quedando repartida a lo largo de
+// todos los videos en vez de agotarse al principio y dejar el resto de
+// la sección solo con videos. Es la misma idea que un algoritmo de
+// Bresenham: en cada paso se toma del lado que, proporcionalmente a lo
+// que ya se tomó de él, "le toca" en ese momento.
+function interleave(a, b){
+  const result = [];
+  let ai = 0, bi = 0;
+  const aLen = a.length, bLen = b.length;
+  while (ai < aLen || bi < bLen){
+    const aRatio = aLen ? ai / aLen : 1;
+    const bRatio = bLen ? bi / bLen : 1;
+    if (bi >= bLen || (ai < aLen && aRatio <= bRatio)){
+      result.push(a[ai++]);
+    } else {
+      result.push(b[bi++]);
+    }
+  }
+  return result;
+}
+
 // Combina fotos y videos (ya con su orientación medida) en una sola
-// lista, intercalando bloques de color decorativos cada 3 elementos
-// (como los rellenos negros/de color de la referencia).
+// lista, repartiéndolos proporcionalmente entre sí (en vez de todas las
+// fotos seguidas y luego todos los videos seguidos) e intercalando
+// bloques de color decorativos cada 3 elementos (como los rellenos
+// negros/de color de la referencia).
 function buildItems(cat, photoOrientations, videoOrientations){
-  const base = [
-    ...cat.photos.map((id, i) => ({ type: 'photo', id, orientation: photoOrientations[i].orientation })),
-    ...cat.videos.map((ref, i) => {
-      const { id, h } = parseVimeoRef(ref);
-      return { type: 'video', id, h, n: i + 1, orientation: videoOrientations[i].orientation };
-    })
-  ];
+  const photoItems = cat.photos.map((id, i) => ({ type: 'photo', id, orientation: photoOrientations[i].orientation }));
+  const videoItems = cat.videos.map((ref, i) => {
+    const { id, h } = parseVimeoRef(ref);
+    const vo = videoOrientations[i];
+    return { type: 'video', id, h, n: i + 1, orientation: vo.orientation, natW: vo.w, natH: vo.h };
+  });
+  const base = interleave(photoItems, videoItems);
   const withDecor = [];
   let colorIdx = 0;
   base.forEach((item, i) => {
@@ -485,6 +599,63 @@ function assignSizes(items){
   return items;
 }
 
+// Ancho x alto (en columnas/filas) de cada tamaño de celda — se usa
+// para reconstruir qué casillas del grid quedaron realmente ocupadas.
+const SIZE_SPANS = { sm: [1, 1], wide: [2, 1], tall: [1, 2], lg: [2, 2], vtall: [2, 3] };
+
+// grid-auto-flow:dense va rellenando huecos a medida que coloca cada
+// celda, pero al final de la lista de una sección casi siempre sobran
+// columnas sueltas en la última fila (no hay más contenido para llenar
+// ese hueco) — eso es lo que se ve como "espacio negro" asomando por el
+// fondo del mosaico. En vez de tratar de adivinar de antemano cuántas
+// columnas van a sobrar (depende del ancho real de columna, que cambia
+// con el breakpoint), se deja que el navegador ubique todas las celdas
+// reales primero y, ya con el grid conectado al documento, se lee la
+// posición real (resuelta) que le tocó a cada una — el navegador expone
+// esa posición "auto" resuelta a línea concreta vía getComputedStyle —
+// para reconstruir qué casillas quedaron vacías y tapar exactamente esas
+// con celditas chicas de color, del mismo tipo que las decorativas.
+function fillGridGaps(grid){
+  const colsVar = getComputedStyle(document.documentElement).getPropertyValue('--cols').trim();
+  const cols = parseInt(colsVar, 10);
+  if (!cols) return;
+  const cells = [...grid.children];
+  const occupied = new Set();
+  let maxRow = 0;
+  cells.forEach(el => {
+    const cs = getComputedStyle(el);
+    const rowStart = parseInt(cs.gridRowStart, 10);
+    const colStart = parseInt(cs.gridColumnStart, 10);
+    if (!rowStart || !colStart) return; // no se pudo leer la posición real: no forzamos nada
+    let span = [1, 1];
+    for (const size in SIZE_SPANS){
+      if (el.classList.contains('c-' + size)){ span = SIZE_SPANS[size]; break; }
+    }
+    const [colSpan, rowSpan] = span;
+    for (let r = 0; r < rowSpan; r++){
+      for (let c = 0; c < colSpan; c++){
+        occupied.add(`${rowStart + r},${colStart + c}`);
+        if (rowStart + r > maxRow) maxRow = rowStart + r;
+      }
+    }
+  });
+  let colorIdx = 0;
+  for (let r = 1; r <= maxRow; r++){
+    for (let c = 1; c <= cols; c++){
+      if (!occupied.has(`${r},${c}`)){
+        const filler = document.createElement('div');
+        filler.className = 'cell cell-color c-sm';
+        filler.style.gridColumn = `${c} / span 1`;
+        filler.style.gridRow = `${r} / span 1`;
+        filler.style.background = PALETTE[colorIdx % PALETTE.length];
+        filler.setAttribute('aria-hidden', 'true');
+        grid.appendChild(filler);
+        colorIdx++;
+      }
+    }
+  }
+}
+
 function renderGrid(section, cat, items){
   const grid = document.createElement('div');
   grid.className = 'mosaic';
@@ -498,8 +669,10 @@ function renderGrid(section, cat, items){
     } else if (item.type === 'video'){
       const div = document.createElement('div');
       div.className = `cell cell-video c-${item.size}`;
-      div.innerHTML = `<iframe src="${vidUrl(item.id, item.h)}" loading="lazy" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" title="${cat.title} — video ${item.n}"></iframe>`;
+      const coverStyle = videoCoverStyle(item);
+      div.innerHTML = `<iframe src="${vidUrl(item.id, item.h)}" style="${coverStyle}" loading="lazy" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" title="${cat.title} — video ${item.n}"></iframe><div class="video-click-layer"><span class="video-play-badge" aria-hidden="true"></span></div>`;
       grid.appendChild(div);
+      initVimeoPlayer(div);
     } else {
       const div = document.createElement('div');
       div.className = `cell cell-color c-${item.size}`;
@@ -509,6 +682,7 @@ function renderGrid(section, cat, items){
     }
   });
   section.appendChild(grid);
+  fillGridGaps(grid);
 }
 
 CATEGORIES.forEach(cat => {
