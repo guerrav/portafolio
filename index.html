@@ -198,8 +198,6 @@
   figure.cell{ margin:0; cursor: zoom-in; }
   figure.cell:hover img{ filter: brightness(0.7); }
 
-  /* Video en escritorio: el iframe vivo de Drive se embebe directo en
-     la celda del mosaico, igual que antes. */
   .cell-video{ background:#000; }
   .cell-video iframe{
     position:absolute; inset:0;
@@ -207,48 +205,20 @@
     border:0;
   }
 
-  /* Video en mobile: en vez del iframe vivo, la celda muestra solo un
-     poster (miniatura) con un ícono de play dibujado en CSS. El
-     player de Drive trae su propia barra de controles a tamaño fijo
-     en píxeles, así que dentro de una celda chica de una pantalla de
-     celular esa barra se ve desproporcionadamente grande y tapa el
-     video. Al hacer click, el iframe real recién se carga, grande,
-     dentro del lightbox, donde sí hay espacio de sobra para sus
-     controles. En escritorio las celdas son más anchas y este
-     problema no aparece, así que ahí se deja el embed directo. */
-  .cell-video.cell-video--poster{ cursor: pointer; }
-  .cell-video img{
-    width:100%; height:100%;
-    object-fit: cover;
-    display:block;
-    opacity: 0.85;
-    transition: opacity .2s ease;
-  }
-  .cell-video:hover img{ opacity: 0.6; }
-  .play-badge{
-    position:absolute; inset:0;
-    display:flex; align-items:center; justify-content:center;
-    pointer-events:none;
-  }
-  .play-badge span{
-    width: 52px; height: 52px;
-    border-radius: 50%;
-    background: rgba(10,10,10,0.55);
-    display:flex; align-items:center; justify-content:center;
-  }
-  .play-badge span::after{
-    content:'';
-    margin-left: 4px;
-    border-style: solid;
-    border-width: 9px 0 9px 15px;
-    border-color: transparent transparent transparent #fff;
-  }
-
   .c-sm{ grid-column: span 1; grid-row: span 1; }
   .c-wide{ grid-column: span 2; grid-row: span 1; }
   .c-tall{ grid-column: span 1; grid-row: span 2; }
   .c-lg{ grid-column: span 2; grid-row: span 2; }
+
+  /* Rectángulo vertical para video: los iframes de Drive muestran una
+     interfaz recortada cuando su ancho renderizado cae muy por debajo
+     de ~380-400px, así que un video nunca puede quedar en una columna
+     angosta de 1 unidad. Este variante mantiene el ancho seguro de 2
+     columnas pero lo alarga a 3 filas para leerse como vertical. */
   .c-vtall{ grid-column: span 2; grid-row: span 3; }
+  .cell-video.c-sm,
+  .cell-video.c-tall,
+  .cell-video.c-lg{ grid-column: span 2; }
 
   /* lightbox */
   #lightbox{
@@ -265,37 +235,6 @@
     max-width: 92vw;
     max-height: 88vh;
   }
-  #lightbox.video-mode img{ display:none; }
-  .lightbox-video-wrap{
-    position: relative;
-    display:none;
-    width: min(92vw, 960px);
-    aspect-ratio: 16 / 9;
-    background:#000;
-  }
-  .lightbox-video-wrap.portrait{
-    width: min(60vw, 480px);
-    aspect-ratio: 9 / 16;
-    max-height: 88vh;
-  }
-  #lightbox.video-mode .lightbox-video-wrap{ display:block; }
-  .lightbox-video-wrap iframe{
-    width:100%; height:100%; border:0;
-  }
-  /* Escudo transparente sobre el iframe de Drive. Empieza sin capturar
-     eventos (pointer-events:none) para que el primer click le llegue al
-     iframe y arranque el video con los controles propios de Drive. En
-     cuanto detectamos ese primer click (via window blur, la señal de que
-     el foco entró al iframe cross-origin) el escudo pasa a capturar todo
-     el mouse, así ya ningún movimiento vuelve a llegarle al iframe y la
-     barra de controles de Drive no puede reaparecer. */
-  .video-mouse-shield{
-    position:absolute; inset:0;
-    background: transparent;
-    pointer-events: none;
-    cursor: default;
-  }
-  .video-mouse-shield.armed{ pointer-events: auto; }
   #lightbox .close{
     position: absolute;
     top: 22px; right: 26px;
@@ -323,6 +262,9 @@
     :root{ --cols: 2; }
     header.hero{ padding: 18px 18px 14px; }
     .cat-head{ padding: 24px 16px 12px; }
+    /* En celular el grid ya solo tiene 2 columnas, así que cualquier
+       celda de video (que siempre abarca 2 columnas) ocupa el ancho
+       completo de la fila de forma natural — no hace falta forzarlo. */
   }
 </style>
 </head>
@@ -345,10 +287,6 @@
 <div id="lightbox">
   <span class="close" id="lightboxClose">&times;</span>
   <img id="lightboxImg" src="" alt="">
-  <div class="lightbox-video-wrap" id="lightboxVideoWrap">
-    <iframe id="lightboxVideoFrame" src="" allow="autoplay" allowfullscreen title="video"></iframe>
-    <div class="video-mouse-shield" id="videoMouseShield"></div>
-  </div>
 </div>
 
 <footer>Portafolio construido a partir del contenido alojado en Google Drive.</footer>
@@ -515,13 +453,6 @@ function assignSizes(items){
   return items;
 }
 
-// Mismo corte que el media query de :root (--cols: 2 por debajo de
-// 620px) — ahí es donde las celdas de video se vuelven angostas y el
-// embed vivo de Drive deja de verse bien.
-function isMobileViewport(){
-  return window.matchMedia('(max-width: 620px)').matches;
-}
-
 function renderGrid(section, cat, items){
   const grid = document.createElement('div');
   grid.className = 'mosaic';
@@ -534,20 +465,8 @@ function renderGrid(section, cat, items){
       grid.appendChild(fig);
     } else if (item.type === 'video'){
       const div = document.createElement('div');
-      if (isMobileViewport()){
-        // Mobile: poster + ícono de play; el iframe vivo de Drive
-        // (con sus controles a tamaño fijo) solo se carga grande en
-        // el lightbox al hacer click, para que esa barra de
-        // controles no tape el video en una celda chica.
-        div.className = `cell cell-video cell-video--poster c-${item.size}`;
-        div.innerHTML = `<img loading="lazy" src="${imgUrl(item.id, 600)}" alt="${cat.title} — video ${item.n}"><div class="play-badge" aria-hidden="true"><span></span></div>`;
-        div.addEventListener('click', () => openVideoLightbox(item.id, item.orientation));
-      } else {
-        // Escritorio: las celdas son más anchas, así que el iframe
-        // vivo de Drive se embebe directo en el mosaico, como antes.
-        div.className = `cell cell-video c-${item.size}`;
-        div.innerHTML = `<iframe src="${vidUrl(item.id)}" loading="lazy" allow="autoplay" allowfullscreen title="${cat.title} — video ${item.n}"></iframe>`;
-      }
+      div.className = `cell cell-video c-${item.size}`;
+      div.innerHTML = `<iframe src="${vidUrl(item.id)}" loading="lazy" allow="autoplay" allowfullscreen title="${cat.title} — video ${item.n}"></iframe>`;
       grid.appendChild(div);
     } else {
       const div = document.createElement('div');
@@ -598,52 +517,21 @@ CATEGORIES.forEach(cat => {
   });
 });
 
-// lightbox behavior. Las fotos abren directo una imagen grande. Los
-// videos, en el mosaico, solo muestran un poster con ícono de play —
-// el iframe real de Drive (con sus controles) solo se carga aquí, a
-// tamaño grande, para que esa barra de controles ya no se vea enorme
-// ni tape el video como pasaba dentro de una celda chica del grid.
+// lightbox behavior (solo fotos — los videos van embebidos directo en
+// el mosaico como pidió Ernesto)
 const lightbox = document.getElementById('lightbox');
 const lightboxImg = document.getElementById('lightboxImg');
-const lightboxVideoWrap = document.getElementById('lightboxVideoWrap');
-const lightboxVideoFrame = document.getElementById('lightboxVideoFrame');
-const videoMouseShield = document.getElementById('videoMouseShield');
 function openLightbox(src){
   lightboxImg.src = src;
   lightbox.classList.add('open');
 }
-function openVideoLightbox(id, orientation){
-  lightboxVideoWrap.classList.toggle('portrait', orientation === 'portrait');
-  lightboxVideoFrame.src = vidUrl(id);
-  lightbox.classList.add('open', 'video-mode');
-  // Escudo desarmado: el primer click le tiene que llegar al iframe para
-  // darle play con los controles nativos de Drive.
-  videoMouseShield.classList.remove('armed');
-}
 function closeLightbox(){
-  lightbox.classList.remove('open', 'video-mode');
+  lightbox.classList.remove('open');
   lightboxImg.src = '';
-  lightboxVideoFrame.src = '';
-  videoMouseShield.classList.remove('armed');
 }
 document.getElementById('lightboxClose').addEventListener('click', closeLightbox);
 lightbox.addEventListener('click', (e) => { if (e.target === lightbox) closeLightbox(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeLightbox(); });
-
-// El iframe de Drive es de otro origen, así que no hay forma de leer o
-// bloquear directamente los eventos de mouse que pasan DENTRO de su
-// documento. El truco: en cuanto el usuario hace click para darle play,
-// el foco del navegador salta al iframe y la ventana principal dispara
-// "blur" — esa es la señal (indirecta pero confiable) de que el click
-// ya llegó y hay que armar el escudo. Desde ese momento el escudo
-// transparente pasa a capturar todo el mouse, así ningún movimiento
-// vuelve a tocar el iframe y la barra de controles de Drive deja de
-// reaparecer.
-window.addEventListener('blur', () => {
-  if (lightbox.classList.contains('video-mode')){
-    videoMouseShield.classList.add('armed');
-  }
-});
 </script>
 
 </body>
