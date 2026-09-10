@@ -188,6 +188,21 @@
     width:100%; height:100%;
     border:0;
   }
+  /* Transparent tap-catcher over the iframe, mobile only (see the fs-tap
+     JS below). It lets the Drive thumbnail show through untouched, but
+     steals the very first tap so we can push the iframe into fullscreen
+     before Drive's player starts, instead of letting it open its cramped
+     "compact" playback UI inline. */
+  .video-card .fs-tap{
+    display: none;
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
   .video-card .label{
     padding: 10px 14px;
     font-size: 13px;
@@ -231,7 +246,7 @@
   }
 
   @media (max-width: 560px){
-    header.hero { padding: 52px 18px 32px; }
+    header.hero{ padding: 52px 18px 32px; }
     section.category{ padding: 40px 0 16px; }
     /* Full-bleed the video cards to the screen edges. Google Drive's
        embedded player switches to a cramped "compact" layout (cropped
@@ -248,6 +263,7 @@
       border-left: none;
       border-right: none;
     }
+    .video-card .fs-tap{ display: block; }
   }
 </style>
 </head>
@@ -385,6 +401,7 @@ CATEGORIES.forEach(cat => {
       card.innerHTML = `
         <div class="frame-wrap">
           <iframe src="${vidUrl(id)}" loading="lazy" allow="autoplay" allowfullscreen></iframe>
+          <button class="fs-tap" aria-label="Reproducir video en pantalla completa" type="button"></button>
         </div>
         <div class="label">${cat.title} · Video ${i+1}</div>
       `;
@@ -395,6 +412,37 @@ CATEGORIES.forEach(cat => {
 
   mainEl.appendChild(section);
 });
+
+// On mobile, Google Drive's embedded video player switches to a cramped
+// "compact" UI while playing inline (a permanent dark scrim, a seek bar
+// pinned to the top, no controls that fade away) once its rendered width
+// drops much below ~450px — which is most phones, even edge-to-edge. We
+// can't touch that player's own CSS/DOM (it's a cross-origin iframe, off
+// limits by browser security), so instead we catch the very first tap
+// before it reaches Drive and push the iframe itself into fullscreen.
+// Drive's player generally switches to its full "theater" UI (auto-hiding
+// controls, no scrim) once it detects it's in the Fullscreen API state,
+// regardless of the phone's screen width. The tap-catcher button is only
+// shown on mobile (see the @media rule above) — desktop already plays
+// inline correctly and is left untouched.
+function setupFullscreenTap(card){
+  const iframe = card.querySelector('iframe');
+  const tapBtn = card.querySelector('.fs-tap');
+  if (!iframe || !tapBtn) return;
+  tapBtn.addEventListener('click', () => {
+    const request = iframe.requestFullscreen
+      || iframe.webkitRequestFullscreen
+      || iframe.webkitEnterFullscreen; // older iOS Safari <video>-style API, harmless if absent
+    if (!request){
+      tapBtn.remove(); // no Fullscreen API support: fall back to Drive's own inline UI
+      return;
+    }
+    Promise.resolve(request.call(iframe)).catch(() => {}).then(() => {
+      tapBtn.remove(); // let the (now fullscreen) iframe handle every tap from here on
+    });
+  });
+}
+document.querySelectorAll('.video-card').forEach(setupFullscreenTap);
 
 // lightbox behavior
 const lightbox = document.getElementById('lightbox');
