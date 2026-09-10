@@ -330,7 +330,7 @@ const imgUrl    = (id, w) => `https://lh3.googleusercontent.com/d/${id}=w${w||10
 // controls=0: sin ninguna barra de controles nativa de Vimeo (ni
 // siquiera el botón de play) — el botón de play propio (dibujado en
 // CSS) y el play/pause se manejan enteramente con el SDK de Vimeo.
-const vidUrl    = (id, h) => `https://player.vimeo.com/video/${id}?h=${h}&title=0&byline=0&portrait=0&dnt=1&controls=0`;
+const vidUrl    = (id, h) => `https://player.vimeo.com/video/${id}?${h ? 'h=' + h + '&' : ''}title=0&byline=0&portrait=0&dnt=1&controls=0`;
 const folderUrl = (id) => `https://drive.google.com/drive/folders/${id}`;
 
 // Relación de aspecto (ancho/alto) de cada tamaño de celda del mosaico,
@@ -457,7 +457,7 @@ function measureOrientation(url){
 // del video y así decidir su orientación. Si el request falla o tarda
 // demasiado, se asume horizontal por seguridad, igual que con fotos.
 function measureVimeoOrientation(id, h){
-  const oembedUrl = `https://vimeo.com/api/oembed.json?url=${encodeURIComponent('https://vimeo.com/' + id + '/' + h)}`;
+  const oembedUrl = `https://vimeo.com/api/oembed.json?url=${encodeURIComponent('https://vimeo.com/' + id + (h ? '/' + h : ''))}`;
   const fetchPromise = fetch(oembedUrl)
     .then(r => r.ok ? r.json() : Promise.reject(new Error('oEmbed ' + r.status)))
     .then(data => {
@@ -488,7 +488,7 @@ const CATEGORIES = [
     title: 'Turntables : Giratorias',
     folder: '1CO02yxVgJj8JZfk9R6Ygb6kHn_mQmDnz',
     photos: ['1fdqW5pH3WeECYC4mFJKavyCwpa-Gl6B9','1xN3vQ5nPbB2EfCyTZhnInC09rnj2-EOh','1wfQ8pecerV_2vRqsVgckRHd1DRUPZ1PC','1-4P9YrKusvIf_uww19GRnJA5n1tzwX6w','1TVdjJr3yzlZlEjSSvvCNU1Fk6FD6lxVn','1JFk6XhBIcSP06ibAI6HLMXhN4MxvWrON','1v2zMqC1H3qBN2gojfnc2PYBUJ3g-_UCs','1NLAq0oSHpcvDt-VteyOzDiBjvNjMtChY','1bnmAvE22Pm0-Culrcb6NUL4cVAnbKcIA','14yj6OBAgwXO2h8axofCCn2M43gq6ilTe','1WWlodwxsqiivP6Z8846IT7hrDrtQbFVj','164M_uMBD83nOuDPpcDmOk-ouRRNn6Muh'],
-    videos: ['1225744865/b3381b017a','1225745621/18bbf58c06','1225745842/7d6451128e','1225745914/6091336059','1225746007/a62d9b3f9d','1225746076/f71c0c8b93','1225746206/f588e41aa9']
+    videos: ['1225773746/d7be8c6ec0','1225745621/18bbf58c06','1225745842/7d6451128e','1225745914/6091336059','1225774389','1225774388','1225774390']
   },
   {
     key: 'display',
