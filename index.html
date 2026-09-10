@@ -267,6 +267,7 @@
   }
   #lightbox.video-mode img{ display:none; }
   .lightbox-video-wrap{
+    position: relative;
     display:none;
     width: min(92vw, 960px);
     aspect-ratio: 16 / 9;
@@ -281,6 +282,20 @@
   .lightbox-video-wrap iframe{
     width:100%; height:100%; border:0;
   }
+  /* Escudo transparente sobre el iframe de Drive. Empieza sin capturar
+     eventos (pointer-events:none) para que el primer click le llegue al
+     iframe y arranque el video con los controles propios de Drive. En
+     cuanto detectamos ese primer click (via window blur, la señal de que
+     el foco entró al iframe cross-origin) el escudo pasa a capturar todo
+     el mouse, así ya ningún movimiento vuelve a llegarle al iframe y la
+     barra de controles de Drive no puede reaparecer. */
+  .video-mouse-shield{
+    position:absolute; inset:0;
+    background: transparent;
+    pointer-events: none;
+    cursor: default;
+  }
+  .video-mouse-shield.armed{ pointer-events: auto; }
   #lightbox .close{
     position: absolute;
     top: 22px; right: 26px;
@@ -332,6 +347,7 @@
   <img id="lightboxImg" src="" alt="">
   <div class="lightbox-video-wrap" id="lightboxVideoWrap">
     <iframe id="lightboxVideoFrame" src="" allow="autoplay" allowfullscreen title="video"></iframe>
+    <div class="video-mouse-shield" id="videoMouseShield"></div>
   </div>
 </div>
 
@@ -591,6 +607,7 @@ const lightbox = document.getElementById('lightbox');
 const lightboxImg = document.getElementById('lightboxImg');
 const lightboxVideoWrap = document.getElementById('lightboxVideoWrap');
 const lightboxVideoFrame = document.getElementById('lightboxVideoFrame');
+const videoMouseShield = document.getElementById('videoMouseShield');
 function openLightbox(src){
   lightboxImg.src = src;
   lightbox.classList.add('open');
@@ -599,15 +616,34 @@ function openVideoLightbox(id, orientation){
   lightboxVideoWrap.classList.toggle('portrait', orientation === 'portrait');
   lightboxVideoFrame.src = vidUrl(id);
   lightbox.classList.add('open', 'video-mode');
+  // Escudo desarmado: el primer click le tiene que llegar al iframe para
+  // darle play con los controles nativos de Drive.
+  videoMouseShield.classList.remove('armed');
 }
 function closeLightbox(){
   lightbox.classList.remove('open', 'video-mode');
   lightboxImg.src = '';
   lightboxVideoFrame.src = '';
+  videoMouseShield.classList.remove('armed');
 }
 document.getElementById('lightboxClose').addEventListener('click', closeLightbox);
 lightbox.addEventListener('click', (e) => { if (e.target === lightbox) closeLightbox(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeLightbox(); });
+
+// El iframe de Drive es de otro origen, así que no hay forma de leer o
+// bloquear directamente los eventos de mouse que pasan DENTRO de su
+// documento. El truco: en cuanto el usuario hace click para darle play,
+// el foco del navegador salta al iframe y la ventana principal dispara
+// "blur" — esa es la señal (indirecta pero confiable) de que el click
+// ya llegó y hay que armar el escudo. Desde ese momento el escudo
+// transparente pasa a capturar todo el mouse, así ningún movimiento
+// vuelve a tocar el iframe y la barra de controles de Drive deja de
+// reaparecer.
+window.addEventListener('blur', () => {
+  if (lightbox.classList.contains('video-mode')){
+    videoMouseShield.classList.add('armed');
+  }
+});
 </script>
 
 </body>
