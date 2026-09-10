@@ -210,11 +210,10 @@
   .c-tall{ grid-column: span 1; grid-row: span 2; }
   .c-lg{ grid-column: span 2; grid-row: span 2; }
 
-  /* Rectángulo vertical para video: los iframes de Drive muestran una
-     interfaz recortada cuando su ancho renderizado cae muy por debajo
-     de ~380-400px, así que un video nunca puede quedar en una columna
-     angosta de 1 unidad. Este variante mantiene el ancho seguro de 2
-     columnas pero lo alarga a 3 filas para leerse como vertical. */
+  /* Rectángulo vertical para video: se mantiene el mismo ancho mínimo
+     de 2 columnas que ya se usaba con los embeds de Drive (por si el
+     player de Vimeo también recorta su UI en anchos muy chicos), pero
+     alargado a 3 filas para leerse como vertical. */
   .c-vtall{ grid-column: span 2; grid-row: span 3; }
   .cell-video.c-sm,
   .cell-video.c-tall,
@@ -289,13 +288,22 @@
   <img id="lightboxImg" src="" alt="">
 </div>
 
-<footer>Portafolio construido a partir del contenido alojado en Google Drive.</footer>
+<footer>Portafolio construido a partir del contenido alojado en Google Drive y Vimeo.</footer>
 
 <script>
-// Helpers to build Drive URLs from file IDs
+// Helpers para construir las URLs de embed. Las fotos siguen alojadas
+// en Google Drive. Los videos ahora están en Vimeo — son videos "solo
+// con el link" (no listados/privados), así que cada uno necesita su
+// propio hash de acceso además del id numérico para poder embeberse.
 const imgUrl    = (id, w) => `https://lh3.googleusercontent.com/d/${id}=w${w||1000}`;
-const vidUrl    = (id) => `https://drive.google.com/file/d/${id}/preview`;
+const vidUrl    = (id, h) => `https://player.vimeo.com/video/${id}?h=${h}&title=0&byline=0&portrait=0&dnt=1`;
 const folderUrl = (id) => `https://drive.google.com/drive/folders/${id}`;
+
+// Separa un item de la lista "id/hash" de Vimeo en sus dos partes.
+function parseVimeoRef(ref){
+  const [id, h] = ref.split('/');
+  return { id, h };
+}
 
 // Paleta ampliada (14 colores + negro) para las celdas decorativas
 // "vacías" del mosaico, muestreada de la imagen de referencia "XITE"
@@ -325,11 +333,11 @@ const OTHER_PHOTO_SIZES    = ['sm', 'wide', 'sm', 'lg', 'sm', 'wide', 'sm', 'sm'
 // cualquier forma libremente).
 const COLOR_SIZES = ['lg', 'sm', 'wide', 'tall', 'sm', 'lg'];
 
-// Determina la orientación real de una foto o del fotograma-miniatura de
-// un video cargando la imagen y leyendo sus dimensiones naturales, en
-// vez de asumir un patrón fijo. Si la miniatura tarda demasiado o falla,
-// se asume horizontal por seguridad (nunca se fuerza un espacio vertical
-// para contenido cuya orientación no pudimos confirmar).
+// Determina la orientación real de una foto cargando la imagen y
+// leyendo sus dimensiones naturales, en vez de asumir un patrón fijo.
+// Si la miniatura tarda demasiado o falla, se asume horizontal por
+// seguridad (nunca se fuerza un espacio vertical para contenido cuya
+// orientación no pudimos confirmar).
 function measureOrientation(url){
   return new Promise((resolve) => {
     let done = false;
@@ -352,6 +360,31 @@ function measureOrientation(url){
   });
 }
 
+// Igual que measureOrientation, pero para videos de Vimeo: en vez de
+// cargar una miniatura, se consulta el endpoint oEmbed público de
+// Vimeo (funciona también con videos privados/"solo con el link",
+// siempre que la URL incluya el hash) para leer el ancho y alto reales
+// del video y así decidir su orientación. Si el request falla o tarda
+// demasiado, se asume horizontal por seguridad, igual que con fotos.
+function measureVimeoOrientation(id, h){
+  const oembedUrl = `https://vimeo.com/api/oembed.json?url=${encodeURIComponent('https://vimeo.com/' + id + '/' + h)}`;
+  const fetchPromise = fetch(oembedUrl)
+    .then(r => r.ok ? r.json() : Promise.reject(new Error('oEmbed ' + r.status)))
+    .then(data => {
+      const w = data.width, hgt = data.height;
+      let orientation = 'landscape';
+      if (w > 0 && hgt > 0){
+        if (hgt > w * 1.08) orientation = 'portrait';
+        else if (w > hgt * 1.08) orientation = 'landscape';
+        else orientation = 'square';
+      }
+      return { w, h: hgt, orientation };
+    })
+    .catch(() => ({ w: 0, h: 0, orientation: 'landscape' }));
+  const timeout = new Promise((resolve) => setTimeout(() => resolve({ w: 0, h: 0, orientation: 'landscape' }), 5000));
+  return Promise.race([fetchPromise, timeout]);
+}
+
 const CATEGORIES = [
   {
     key: 'display',
@@ -365,8 +398,7 @@ const CATEGORIES = [
     title: 'Mecanismos especiales',
     folder: '1RN52UVDpiF32si_iCLQY3zt6bNreWt5V',
     photos: ['1a2NVhdHtnYYfJIVkVEu_k70ASHAQHJpj','1CCG6gLeUVxm7CE_qkqzbO24u3d_BqytH','18ayq4yRtwD3TDhRJV2jPRuCvnw-bfaY5','1Hy15ANxsYQ2DrKVa4svUW4AqLlLBsfl0','1OuH90UPdABT2h-vp1hFxlsiddpu3ELrN','1r3GcbHajwuP9WiCkbJ3OSNlHPYUNvvEA','1wWUV5SkNOqYAESq-wbf2fUcnP_4roAaS','17yN2_5GdqW_sz24g6tP_vfrPeDCV0IlZ','14hj9WMib0Z90iEgSakF0pso8KRrS3vQT','1GTtSLFGxBF0dNBoWkaCgnR4lywOV7VsK','1j45LjgMwQuO6XXnWOrsgrWt7dbsXkOyG'],
-    videos: ['1GwsgoOdQrGL1HSyIDmAU_KXh3aWbF79f','10qdGs58EBbdUU0wAAgp0qU_k7BQKBTg1','1zBg846U2PxyCXAZGU4lsvCXY85sHp2v7','171REXmDlillN486LnF2B82ld6NcQm0ab','12I6NA6-4PnJS5-DJEhvQ0Mf9XQ9TQqPY','1ww-PFXtLBYUPZQBNeKlnMeDLyleos-tx','1prT2VCtiQxIDb294xJFPfT0rrQp8kuUP','1zD2yXsr7cGwnim1j2MKhsDEpyHgJVSh9'],
-    videosTotal: 39
+    videos: ['1225732427/8cd5408d74','1225732428/15057046dc','1225732426/40564d9ae6','1225732429/67bc75cf9e','1225732444/0660f60c17','1225732501/8c9a862563','1225732702/9ef34ba0cc','1225732812/a5956142de','1225732817/95090291bb','1225732914/aa6773bf98','1225732921/973f2b210b','1225733087/0f2c676c96','1225733264/b76b1f7ad8','1225733581/1e23eb31f3','1225733646/de367409ac','1225733699/c8994fcdd0','1225733848/db63c3d144']
   },
   {
     key: 'montajes',
@@ -374,31 +406,28 @@ const CATEGORIES = [
     folder: '18wxwIjwwRtQVgGmFozit8Mj-Z2zdakkH',
     photos: ['1DdZX3iCI_bcSRVLGwqsuNzwP_iiD0e73','164uZCES2IkDsz3AdAKedtbsz5kG26gV3','1NZb5m2lV8gfiCIZW6zF6pOJk561cgofm','1eqjlEG4-WDiKFXgbRA67YC55ynaV3n77','1xxVH1qdiwQ2npatLMZ3Apk8Dz9OliIR0','1kZupUXaKmcLbucE6EVxpjy-dusb4xYyJ','1GMMq35wwDNRfGuURFfI0Y_EHZ34ZFuuy','1fdqkSEbYq0Ji6X-TvXjDagad7SSZnhpX'],
     photosTotal: 24,
-    videos: ['12aTuRT4jcrbh71VE6eUSEGWvIk1VkMyg','1kgP-UZBcOOcpTNorIZ3AjmvmJWfaRb9D']
+    videos: ['1225735133/3901b04531','1225735188/1320076e8d']
   },
   {
     key: 'pantalla',
     title: 'Movimiento de Pantalla',
     folder: '1xCx8cREvy019tBvOf1VHMrPLHtrrxB9H',
     photos: ['1C6n6r692NqXbjRmLZqxEx54ig4kvqMck','1HSosR3w5ViQ5EC_2etcP77-ilJPZhHwe'],
-    videos: ['1pl2_7ASOvuUXEw-D3Wx4gSgVtjsLE92V','1OEIzfP1XYzDa-cYEuVUhTajGDPkrSxZu','1b5Dr6QVGBBY1Vvcf3LlXCz9ZWtVKuY9D','1BZxdH_bJgcMAGReB6cRTqtY_8cQZ4kIS','1l93K_YOLgaWY2VuVgtiEbDOR8wXDDaAi','1swzd6FJ39EqD4zpUBC3LQ7Kk1tN_Efl7'],
-    videosTotal: 11
+    videos: ['1225738987/2667553def','1225738985/661e48a8dc','1225738988/13742df713','1225738986/b8f81106ba','1225739205/bf812141a5','1225739407/21f4b34327','1225739457/a98504e62c','1225739481/78aa3f868a','1225740082/ce1c7e3dce','1225740146/ddef7d75dc','1225740272/8f3a4fba16']
   },
   {
     key: 'tijeras',
     title: 'Scissor Lifts : Tijeras Hidráulicas',
     folder: '1XuDtRpyDEDf0wPZHtwxybbON-IrTe4py',
     photos: ['1kgVTlyS5OkavxALquFBXeFu7e_myDiFz','1yMsobmdETX2JN3_kBY369pn4_-3b_1MG','1M7VQoAoaDoQRQdG3t4irTUDD7exonmO9','1me5PZQhGA4541HSkMMVSP_hb81o-GPFD','1nOgCrf1VAH5oejM36XIXnfUItu7TPywa','11-1HyPAy5AJRqGNQnxdHWGnCsfr-Epse','1QLqPjehR-r1b2XfFmJnHHXI8aRLKV5Bj','1-ipOkQRzp9J4H_-UkaIcdIm_zswkaSkD','1LMfCStmMWJu4-Mz0VznCC7BfJ5j7aW1f','1SqrWpWv-d8mFm_rAUYCdGBuBqDC_3nkn'],
-    videos: ['194vXIRnMTeItZhUCUsXhUAhizq07r8kJ','14fmt1GURyDyL2JtGho1P23_DIAloNJNA','1jTn91xlp27UZey8sisB5b_Fn6JSD6W2I','17nkDS9Ql2Bbl2KdMPCof7DMy8yuWm2fh','1j3q3-MUOTJMaxNIQF1LO_cPrBwBSA3Pc','1XIC0si59Q6Mu8piRpfvAbG3CoTVnhTls','16Ae14Kw8J2DCubqtTcSBg90kHWsbU25i','11EHiyTpCkXFN8djRzDxtDfKME34tQtSI'],
-    videosTotal: 16
+    videos: ['1225740661/37a944d93a','1225740801/969f6469b1','1225740808/845af74d6e','1225740900/91333ef5df','1225741057/710b516c88','1225741498/cbf8ec13be','1225741525/1431919e1d','1225741656/cad399b4a4','1225742356/a210f0951d','1225742361/71fe8372ad','1225743151/22718a9b6a']
   },
   {
     key: 'giratorias',
     title: 'Turntables : Giratorias',
     folder: '1GcjrXtUuKyp0XvvXQPL4JVlKwT72vSbh',
     photos: ['11l75zhcAI2cAv0G0-ntUkgSSUawKAzhB','1fnE5NyzcpEdA_rOc-it2HqnuqOfKjfti','1ZMCyVnQk4gTEBzJROYv7WJavCJHI9oez','1tUgkS8QZ-_B1Fnt7uEBlG9IkbBVeUex_','18ZEomfEExPKMJMI48Us_Wlae4A9AtOes','1KbAbvnNAYxNLH9mewwg657cytq309Ync','1k4lFYSElIo-XNPRfsuAVT-mSP_tICRah','1QKSYLTEi7m4NWCDk-zCLQFMkYqzWBod7','1fKeWPOlesYz3a_x2yCq_h293oyXTzNBn','1xV28KMzR08hMYMDSwDfOkAdR95Dr0i4D'],
-    videos: ['1boILj-axW3Xg5Cr_vPzV8VT0JTKeIHj9','1En45neoWse9r351J740lyLchrGT5N7iU','1OBYMkLG5Fw7Tit_MzXRVr_5goJyEqwxO','1hhb4ZWEITvHwzj3IeyGob8x4jdssG5nQ','1vYAlHIqtxxC2igXr129UqErqKG50T6Sf','1s_fsvpwoK0iElB5CxdXS_6e_qIzsEftw','1fz_jkb36JS3aqr5TEnyhysBEsFCpqztx'],
-    videosTotal: 14
+    videos: ['1225744865/b3381b017a','1225745621/18bbf58c06','1225745842/7d6451128e','1225745914/6091336059','1225746007/a62d9b3f9d','1225746076/f71c0c8b93','1225746206/f588e41aa9']
   }
 ];
 
@@ -411,7 +440,10 @@ const mainEl = document.getElementById('main');
 function buildItems(cat, photoOrientations, videoOrientations){
   const base = [
     ...cat.photos.map((id, i) => ({ type: 'photo', id, orientation: photoOrientations[i].orientation })),
-    ...cat.videos.map((id, i) => ({ type: 'video', id, n: i + 1, orientation: videoOrientations[i].orientation }))
+    ...cat.videos.map((ref, i) => {
+      const { id, h } = parseVimeoRef(ref);
+      return { type: 'video', id, h, n: i + 1, orientation: videoOrientations[i].orientation };
+    })
   ];
   const withDecor = [];
   let colorIdx = 0;
@@ -466,7 +498,7 @@ function renderGrid(section, cat, items){
     } else if (item.type === 'video'){
       const div = document.createElement('div');
       div.className = `cell cell-video c-${item.size}`;
-      div.innerHTML = `<iframe src="${vidUrl(item.id)}" loading="lazy" allow="autoplay" allowfullscreen title="${cat.title} — video ${item.n}"></iframe>`;
+      div.innerHTML = `<iframe src="${vidUrl(item.id, item.h)}" loading="lazy" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" title="${cat.title} — video ${item.n}"></iframe>`;
       grid.appendChild(div);
     } else {
       const div = document.createElement('div');
@@ -492,25 +524,29 @@ CATEGORIES.forEach(cat => {
   section.id = cat.key;
 
   const totalPhotos = cat.photosTotal || cat.photos.length;
-  const totalVideos = cat.videosTotal || cat.videos.length;
+  const totalVideos = cat.videos.length;
 
   const head = document.createElement('div');
   head.className = 'cat-head';
   head.innerHTML = `
     <div>
       <h2>${cat.title}</h2>
-      <span class="cat-count mono">${totalPhotos} fotos · ${totalVideos} videos en Drive</span>
+      <span class="cat-count mono">${totalPhotos} fotos · ${totalVideos} videos</span>
     </div>
     <a class="drive-link" href="${folderUrl(cat.folder)}" target="_blank" rel="noopener">Ver todo en Drive &rarr;</a>
   `;
   section.appendChild(head);
   mainEl.appendChild(section);
 
-  // Mide la orientación real de cada foto y de la miniatura de cada
-  // video antes de decidir qué celdas pueden ser rectángulos verticales.
+  // Mide la orientación real de cada foto (miniatura de Drive) y de
+  // cada video (metadata de Vimeo vía oEmbed) antes de decidir qué
+  // celdas pueden ser rectángulos verticales.
   Promise.all([
     Promise.all(cat.photos.map(id => measureOrientation(imgUrl(id, 200)))),
-    Promise.all(cat.videos.map(id => measureOrientation(imgUrl(id, 200))))
+    Promise.all(cat.videos.map(ref => {
+      const { id, h } = parseVimeoRef(ref);
+      return measureVimeoOrientation(id, h);
+    }))
   ]).then(([photoOrientations, videoOrientations]) => {
     const items = assignSizes(buildItems(cat, photoOrientations, videoOrientations));
     if (items.length) renderGrid(section, cat, items);
@@ -518,7 +554,7 @@ CATEGORIES.forEach(cat => {
 });
 
 // lightbox behavior (solo fotos — los videos van embebidos directo en
-// el mosaico como pidió Ernesto)
+// el mosaico, con el reproductor propio de Vimeo)
 const lightbox = document.getElementById('lightbox');
 const lightboxImg = document.getElementById('lightboxImg');
 function openLightbox(src){
