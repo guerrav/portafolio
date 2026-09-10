@@ -198,14 +198,25 @@
   figure.cell{ margin:0; cursor: zoom-in; }
   figure.cell:hover img{ filter: brightness(0.7); }
 
-  /* Video: en el mosaico solo se ve un poster (miniatura) con un
-     ícono de play dibujado en CSS — ya NO se embebe el iframe vivo de
-     Drive ahí. El player de Drive trae su propia barra de controles a
-     tamaño fijo en píxeles, así que dentro de una celda chica del
-     grid esa barra se ve desproporcionadamente grande y tapa el
-     video. Al hacer click, el iframe real se carga grande dentro del
-     lightbox, donde sí hay espacio de sobra para sus controles. */
-  .cell-video{ background:#000; cursor: pointer; }
+  /* Video en escritorio: el iframe vivo de Drive se embebe directo en
+     la celda del mosaico, igual que antes. */
+  .cell-video{ background:#000; }
+  .cell-video iframe{
+    position:absolute; inset:0;
+    width:100%; height:100%;
+    border:0;
+  }
+
+  /* Video en mobile: en vez del iframe vivo, la celda muestra solo un
+     poster (miniatura) con un ícono de play dibujado en CSS. El
+     player de Drive trae su propia barra de controles a tamaño fijo
+     en píxeles, así que dentro de una celda chica de una pantalla de
+     celular esa barra se ve desproporcionadamente grande y tapa el
+     video. Al hacer click, el iframe real recién se carga, grande,
+     dentro del lightbox, donde sí hay espacio de sobra para sus
+     controles. En escritorio las celdas son más anchas y este
+     problema no aparece, así que ahí se deja el embed directo. */
+  .cell-video.cell-video--poster{ cursor: pointer; }
   .cell-video img{
     width:100%; height:100%;
     object-fit: cover;
@@ -488,6 +499,13 @@ function assignSizes(items){
   return items;
 }
 
+// Mismo corte que el media query de :root (--cols: 2 por debajo de
+// 620px) — ahí es donde las celdas de video se vuelven angostas y el
+// embed vivo de Drive deja de verse bien.
+function isMobileViewport(){
+  return window.matchMedia('(max-width: 620px)').matches;
+}
+
 function renderGrid(section, cat, items){
   const grid = document.createElement('div');
   grid.className = 'mosaic';
@@ -500,9 +518,20 @@ function renderGrid(section, cat, items){
       grid.appendChild(fig);
     } else if (item.type === 'video'){
       const div = document.createElement('div');
-      div.className = `cell cell-video c-${item.size}`;
-      div.innerHTML = `<img loading="lazy" src="${imgUrl(item.id, 600)}" alt="${cat.title} — video ${item.n}"><div class="play-badge" aria-hidden="true"><span></span></div>`;
-      div.addEventListener('click', () => openVideoLightbox(item.id, item.orientation));
+      if (isMobileViewport()){
+        // Mobile: poster + ícono de play; el iframe vivo de Drive
+        // (con sus controles a tamaño fijo) solo se carga grande en
+        // el lightbox al hacer click, para que esa barra de
+        // controles no tape el video en una celda chica.
+        div.className = `cell cell-video cell-video--poster c-${item.size}`;
+        div.innerHTML = `<img loading="lazy" src="${imgUrl(item.id, 600)}" alt="${cat.title} — video ${item.n}"><div class="play-badge" aria-hidden="true"><span></span></div>`;
+        div.addEventListener('click', () => openVideoLightbox(item.id, item.orientation));
+      } else {
+        // Escritorio: las celdas son más anchas, así que el iframe
+        // vivo de Drive se embebe directo en el mosaico, como antes.
+        div.className = `cell cell-video c-${item.size}`;
+        div.innerHTML = `<iframe src="${vidUrl(item.id)}" loading="lazy" allow="autoplay" allowfullscreen title="${cat.title} — video ${item.n}"></iframe>`;
+      }
       grid.appendChild(div);
     } else {
       const div = document.createElement('div');
