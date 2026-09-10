@@ -6,214 +6,224 @@
 <title>Portafolio</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
+  /* Paleta ampliada (14 colores), extraída por muestreo de la imagen de
+     referencia "XITE" que compartió Ernesto: un grid de tarjetas con
+     texto saturado sobre fondos de tono relacionado, mezclando tonos
+     pastel y tonos muy vivos. Más negro puro para las celdas "vacías"
+     del mosaico, como el grid de logos de la referencia de Afternow en
+     Dribbble. */
   :root{
-    --bg: #0b0d10;
-    --bg-elev: #14171b;
-    --border: #262a30;
-    --text: #eef0f2;
-    --text-dim: #9aa2ac;
-    --accent: #ff6a3d;
-    --accent-dim: #7a3420;
-    --radius: 14px;
+    --bg: #ffffff;
+    --ink: #0a0a0a;
+    --ink-dim: #6b6a61;
+    --header-bg: #0a0a0a;
+    --header-ink: #ffffff;
+    --c-verde: #6fea76;
+    --c-lavanda: #c899f7;
+    --c-red-ryb: #fe2712;
+    --c-naranja: #ea6e34;
+    --c-celeste: #8fd6f9;
+    --c-azul: #52aff6;
+    --c-amarillo: #fefc57;
+    --c-lila: #eca5ed;
+    --c-verde-lima: #c7d84a;
+    --c-violeta: #7516e2;
+    --c-menta: #83c8a2;
+    --cols: 6;
+    /* La altura de fila debe igualar el ancho real de columna para que
+       las celdas chicas sean cuadrados 1:1 y las anchas queden 2:1. El
+       grid es a todo el ancho (100vw, sin padding), así que el ancho de
+       columna es (100vw - gaps) / cols. */
+    --unit: calc((100vw - (var(--cols) - 1) * 2px) / var(--cols));
   }
   *{ box-sizing: border-box; }
   html{ scroll-behavior: smooth; }
   body{
     margin:0;
     background: var(--bg);
-    color: var(--text);
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: var(--ink);
+    font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     -webkit-font-smoothing: antialiased;
   }
   a{ color: inherit; }
+  .mono{ font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace; }
 
+  /* ---------- Header: negro, tipografía blanca, compacto (menos alto
+     que la referencia de Afternow, que gasta mucho alto en botones e
+     iconos que aquí no necesitamos). header.hero (logotipo + botones de
+     categoría) es lo que queda fijo arriba al hacer scroll; para que un
+     elemento sticky se quede pegado durante TODO el scroll de la página
+     necesita vivir directo en el flujo del body (su "contenedor" sticky
+     es la altura completa de la página) — por eso .hero-desc, el texto
+     de descripción, va fuera de <header>, como hermano siguiente, y así
+     se desplaza normalmente con el resto del contenido en vez de quedar
+     atrapado dentro de una franja de solo ~160px de alto. */
   header.hero{
-    padding: 72px 24px 40px;
-    text-align:center;
-    border-bottom: 1px solid var(--border);
-    background:
-      radial-gradient(60% 100% at 50% 0%, rgba(255,106,61,0.12), transparent 70%),
-      var(--bg);
-  }
-  header.hero .eyebrow{
-    text-transform: uppercase;
-    letter-spacing: .18em;
-    font-size: 12px;
-    color: var(--accent);
-    font-weight: 700;
-    margin-bottom: 14px;
-  }
-  header.hero h1{
-    font-size: clamp(32px, 6vw, 56px);
-    margin: 0 0 14px;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-  }
-  header.hero p{
-    color: var(--text-dim);
-    font-size: 17px;
-    max-width: 620px;
-    margin: 0 auto;
-    line-height: 1.6;
-  }
-
-  nav.catnav{
     position: sticky;
     top: 0;
     z-index: 40;
+    background: var(--header-bg);
+    color: var(--header-ink);
+    padding: 18px 24px 14px;
+  }
+  header.hero .top-row{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .logo-slot{
+    display:flex;
+    align-items:center;
+    gap: 10px;
+    min-height: 28px; /* espacio reservado para un logotipo real */
+  }
+  .logo-mark{
+    display:block;
+    width:auto;
+  }
+  header.hero h1{
+    /* Mitad del tamaño original (era clamp(20px, 3.2vw, 30px)). */
+    font-size: clamp(10px, 1.6vw, 15px);
+    margin: 0;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.15;
+    text-align: right;
+  }
+  /* No sticky: vive fuera de header.hero, así que se desplaza con el
+     resto de la página en cuanto se hace scroll. Mismo fondo negro para
+     que, en la posición inicial (scroll 0), se vea continuo con el
+     header de arriba. Sin max-width: ocupa todo el ancho de la página. */
+  .hero-desc{
+    background: var(--header-bg);
+    color: #b9b8b0;
+    font-size: 13.5px;
+    margin: 0;
+    padding: 16px 24px 20px;
+    line-height: 1.5;
+  }
+
+  nav.catnav{
     display:flex;
     gap: 8px;
     overflow-x: auto;
-    padding: 14px 20px;
-    background: rgba(11,13,16,0.85);
-    backdrop-filter: blur(10px);
-    border-bottom: 1px solid var(--border);
+    margin-top: 16px;
+    padding-bottom: 2px;
     scrollbar-width: none;
   }
   nav.catnav::-webkit-scrollbar{ display:none; }
   nav.catnav a{
     flex: 0 0 auto;
-    padding: 9px 16px;
-    border-radius: 999px;
-    font-size: 13.5px;
-    font-weight: 600;
-    color: var(--text-dim);
-    border: 1px solid var(--border);
+    padding: 6px 12px;
+    font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+    font-size: 12px;
+    font-weight: 500;
+    color: #fff;
+    background: transparent;
+    border: 1px solid #fff;
     text-decoration: none;
     white-space: nowrap;
-    transition: all .15s ease;
+    transition: background .12s ease, color .12s ease;
   }
-  nav.catnav a:hover{ color: var(--text); border-color: #3a3f47; }
+  nav.catnav a:hover{ background: #fff; color: #000; }
 
-  main{ max-width: 1180px; margin: 0 auto; padding: 10px 20px 80px; }
+  /* ---------- Cuerpo: mosaico full-bleed, sin padding lateral ---------- */
+  main{ width: 100%; }
 
-  section.category{
-    padding: 56px 0 24px;
-    border-bottom: 1px solid var(--border);
-  }
-  section.category:last-child{ border-bottom: none; }
-
+  section.category{ }
   .cat-head{
     display:flex;
     justify-content: space-between;
     align-items: flex-end;
     flex-wrap: wrap;
-    gap: 14px;
-    margin-bottom: 26px;
+    gap: 12px;
+    padding: 30px 24px 16px;
   }
   .cat-head h2{
-    font-size: clamp(22px, 3.4vw, 30px);
+    font-size: clamp(19px, 2.8vw, 25px);
     margin: 0;
     font-weight: 700;
-    letter-spacing: -0.01em;
   }
   .cat-count{
-    color: var(--text-dim);
-    font-size: 13.5px;
-    margin-top: 4px;
+    color: var(--ink-dim);
+    font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+    font-size: 12px;
+    margin-top: 5px;
     display:block;
   }
   .drive-link{
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 10px 18px;
-    border-radius: 999px;
-    background: var(--bg-elev);
-    border: 1px solid var(--border);
-    font-size: 13.5px;
-    font-weight: 600;
+    padding: 8px 14px;
+    background: var(--ink);
+    color: #fff;
+    border: 1px solid var(--ink);
+    font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+    font-size: 12px;
+    font-weight: 500;
     text-decoration: none;
-    color: var(--text);
-    transition: all .15s ease;
+    transition: background .12s ease, color .12s ease;
     flex: 0 0 auto;
   }
-  .drive-link:hover{ border-color: var(--accent); color: var(--accent); }
+  .drive-link:hover{ background: #fff; color: var(--ink); }
 
-  h3.subhead{
-    font-size: 13px;
-    text-transform: uppercase;
-    letter-spacing: .14em;
-    color: var(--text-dim);
-    margin: 30px 0 16px;
-    font-weight: 700;
-  }
-
-  .photo-grid{
+  /* Mosaico: grid denso de celdas chicas, rectángulos y celdas grandes,
+     sin gutter propio — las líneas entre celdas son el fondo negro del
+     propio grid asomando por un gap de 2px, como en la referencia. */
+  .mosaic{
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(var(--cols), 1fr);
+    grid-auto-rows: var(--unit);
+    grid-auto-flow: dense;
+    gap: 2px;
+    background: #000;
   }
-  .photo-grid figure{
-    margin:0;
-    aspect-ratio: 4/3;
-    border-radius: var(--radius);
-    overflow: hidden;
-    background: var(--bg-elev);
-    border: 1px solid var(--border);
-    cursor: zoom-in;
+  .cell{
     position: relative;
+    overflow: hidden;
+    background: var(--bg);
+    cursor: default;
   }
-  .photo-grid img{
+  .cell img{
     width:100%; height:100%;
     object-fit: cover;
     display:block;
-    transition: transform .35s ease;
-    background: var(--bg-elev);
+    transition: filter .2s ease;
   }
-  .photo-grid figure:hover img{ transform: scale(1.06); }
+  figure.cell{ margin:0; cursor: zoom-in; }
+  figure.cell:hover img{ filter: brightness(0.7); }
 
-  .video-grid{
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
-    gap: 16px;
-  }
-  .video-card{
-    border-radius: var(--radius);
-    overflow: hidden;
-    border: 1px solid var(--border);
-    background: var(--bg-elev);
-  }
-  .video-card .frame-wrap{
-    position: relative;
-    width: 100%;
-    aspect-ratio: 16/9;
-    background:#000;
-    overflow: hidden;
-  }
-  .video-card iframe{
+  .cell-video{ background:#000; }
+  .cell-video iframe{
     position:absolute; inset:0;
     width:100%; height:100%;
     border:0;
   }
-  /* Transparent tap-catcher over the iframe, mobile only (see the fs-tap
-     JS below). It lets the Drive thumbnail show through untouched, but
-     steals the very first tap so we can push the iframe into fullscreen
-     before Drive's player starts, instead of letting it open its cramped
-     "compact" playback UI inline. */
-  .video-card .fs-tap{
-    display: none;
-    position: absolute; inset: 0;
-    width: 100%; height: 100%;
-    background: transparent;
-    border: 0;
-    padding: 0;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .video-card .label{
-    padding: 10px 14px;
-    font-size: 13px;
-    color: var(--text-dim);
-    font-weight: 500;
-  }
+
+  .c-sm{ grid-column: span 1; grid-row: span 1; }
+  .c-wide{ grid-column: span 2; grid-row: span 1; }
+  .c-tall{ grid-column: span 1; grid-row: span 2; }
+  .c-lg{ grid-column: span 2; grid-row: span 2; }
+
+  /* Rectángulo vertical para video: los iframes de Drive muestran una
+     interfaz recortada cuando su ancho renderizado cae muy por debajo
+     de ~380-400px, así que un video nunca puede quedar en una columna
+     angosta de 1 unidad. Este variante mantiene el ancho seguro de 2
+     columnas pero lo alarga a 3 filas para leerse como vertical. */
+  .c-vtall{ grid-column: span 2; grid-row: span 3; }
+  .cell-video.c-sm,
+  .cell-video.c-tall,
+  .cell-video.c-lg{ grid-column: span 2; }
 
   /* lightbox */
   #lightbox{
     position: fixed; inset:0;
-    background: rgba(4,5,6,0.92);
+    background: rgba(10,10,10,0.94);
     display:none;
     align-items:center;
     justify-content:center;
@@ -224,58 +234,53 @@
   #lightbox img{
     max-width: 92vw;
     max-height: 88vh;
-    border-radius: 8px;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
   }
   #lightbox .close{
     position: absolute;
     top: 22px; right: 26px;
-    font-size: 30px;
-    color: #fff;
+    width: 36px; height: 36px;
+    display:flex; align-items:center; justify-content:center;
+    background: #fff;
+    font-size: 20px;
+    color: var(--ink);
     cursor: pointer;
-    opacity: .8;
     line-height:1;
   }
-  #lightbox .close:hover{ opacity:1; }
 
   footer{
     text-align:center;
-    padding: 40px 20px 60px;
-    color: var(--text-dim);
-    font-size: 13px;
+    padding: 34px 20px 50px;
+    color: var(--ink-dim);
+    font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+    font-size: 12px;
   }
 
-  @media (max-width: 560px){
-    header.hero{ padding: 52px 18px 32px; }
-    section.category{ padding: 40px 0 16px; }
-    /* Full-bleed the video cards to the screen edges. Google Drive's
-       embedded player switches to a cramped "compact" layout (cropped
-       video, play button in a corner, no controls that auto-hide during
-       playback) when its rendered width drops much below ~380-400px, so
-       on narrow phones every extra pixel of width matters. */
-    .video-grid{
-      grid-template-columns: 1fr;
-      margin-left: -20px;
-      margin-right: -20px;
-    }
-    .video-card{
-      border-radius: 0;
-      border-left: none;
-      border-right: none;
-    }
-    .video-card .fs-tap{ display: block; }
+  @media (max-width: 900px){
+    :root{ --cols: 4; }
+  }
+  @media (max-width: 620px){
+    :root{ --cols: 2; }
+    header.hero{ padding: 18px 18px 14px; }
+    .cat-head{ padding: 24px 16px 12px; }
+    /* En celular el grid ya solo tiene 2 columnas, así que cualquier
+       celda de video (que siempre abarca 2 columnas) ocupa el ancho
+       completo de la fila de forma natural — no hace falta forzarlo. */
   }
 </style>
 </head>
 <body>
 
 <header class="hero">
-  <div class="eyebrow">Portafolio de proyectos</div>
-  <h1>Mecanismos &amp; Estructuras Especiales</h1>
-  <p>Selección de fotos y videos de nuestros proyectos: displays, mecanismos y montajes especiales, movimiento de pantalla, tijeras hidráulicas y plataformas giratorias.</p>
+  <div class="top-row">
+    <div class="logo-slot">
+      <img class="logo-mark" src="data:image/png;base64,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" alt="Magsa" height="30">
+    </div>
+    <h1>Mecanismos &amp; Estructuras Especiales</h1>
+  </div>
+  <nav class="catnav" id="catnav"></nav>
 </header>
 
-<nav class="catnav" id="catnav"></nav>
+<p class="hero-desc">Selección de fotos y videos de nuestros proyectos: displays, mecanismos y montajes especiales, movimiento de pantalla, tijeras hidráulicas y plataformas giratorias.</p>
 
 <main id="main"></main>
 
@@ -288,9 +293,64 @@
 
 <script>
 // Helpers to build Drive URLs from file IDs
-const imgUrl  = (id, w) => `https://lh3.googleusercontent.com/d/${id}=w${w||1000}`;
-const vidUrl  = (id) => `https://drive.google.com/file/d/${id}/preview`;
+const imgUrl    = (id, w) => `https://lh3.googleusercontent.com/d/${id}=w${w||1000}`;
+const vidUrl    = (id) => `https://drive.google.com/file/d/${id}/preview`;
 const folderUrl = (id) => `https://drive.google.com/drive/folders/${id}`;
+
+// Paleta ampliada (14 colores + negro) para las celdas decorativas
+// "vacías" del mosaico, muestreada de la imagen de referencia "XITE"
+// que compartió Ernesto — mezcla de pasteles y tonos muy saturados.
+const PALETTE = [
+  '#6fea76', // verde
+  '#c899f7', // lavanda
+  '#fe2712', // red ryb
+  '#ea6e34', // naranja
+  '#8fd6f9', // celeste
+  '#52aff6', // azul
+  '#fefc57', // amarillo
+  '#eca5ed', // lila
+  '#c7d84a', // verde lima
+  '#7516e2', // violeta
+  '#83c8a2', // menta
+  '#000000'  // negro (bloques "vacíos", como la referencia)
+];
+
+// Los rectángulos verticales (foto: 1x2, video: vtall) solo se asignan
+// a contenido cuya orientación real medida es "portrait" — nunca a algo
+// horizontal o cuadrado, para no forzar un recorte raro. Estos son los
+// patrones de variedad dentro de cada grupo de orientación.
+const PORTRAIT_PHOTO_SIZES = ['tall', 'tall', 'lg', 'tall'];
+const OTHER_PHOTO_SIZES    = ['sm', 'wide', 'sm', 'lg', 'sm', 'wide', 'sm', 'sm', 'lg', 'wide'];
+// Para las celdas decorativas de color (sin contenido real, pueden ser
+// cualquier forma libremente).
+const COLOR_SIZES = ['lg', 'sm', 'wide', 'tall', 'sm', 'lg'];
+
+// Determina la orientación real de una foto o del fotograma-miniatura de
+// un video cargando la imagen y leyendo sus dimensiones naturales, en
+// vez de asumir un patrón fijo. Si la miniatura tarda demasiado o falla,
+// se asume horizontal por seguridad (nunca se fuerza un espacio vertical
+// para contenido cuya orientación no pudimos confirmar).
+function measureOrientation(url){
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (w, h) => {
+      if (done) return;
+      done = true;
+      let orientation = 'landscape';
+      if (w > 0 && h > 0){
+        if (h > w * 1.08) orientation = 'portrait';
+        else if (w > h * 1.08) orientation = 'landscape';
+        else orientation = 'square';
+      }
+      resolve({ w, h, orientation });
+    };
+    const img = new Image();
+    img.onload = () => finish(img.naturalWidth, img.naturalHeight);
+    img.onerror = () => finish(0, 0);
+    setTimeout(() => finish(0, 0), 5000);
+    img.src = url;
+  });
+}
 
 const CATEGORIES = [
   {
@@ -345,6 +405,80 @@ const CATEGORIES = [
 const navEl = document.getElementById('catnav');
 const mainEl = document.getElementById('main');
 
+// Combina fotos y videos (ya con su orientación medida) en una sola
+// lista, intercalando bloques de color decorativos cada 3 elementos
+// (como los rellenos negros/de color de la referencia).
+function buildItems(cat, photoOrientations, videoOrientations){
+  const base = [
+    ...cat.photos.map((id, i) => ({ type: 'photo', id, orientation: photoOrientations[i].orientation })),
+    ...cat.videos.map((id, i) => ({ type: 'video', id, n: i + 1, orientation: videoOrientations[i].orientation }))
+  ];
+  const withDecor = [];
+  let colorIdx = 0;
+  base.forEach((item, i) => {
+    withDecor.push(item);
+    if ((i + 1) % 3 === 0){
+      withDecor.push({ type: 'color', color: PALETTE[colorIdx % PALETTE.length] });
+      colorIdx++;
+    }
+  });
+  // remate: si la categoría no alcanzó ni un bloque de color, agrega uno.
+  if (!withDecor.some(it => it.type === 'color') && base.length){
+    withDecor.push({ type: 'color', color: PALETTE[0] });
+  }
+  return withDecor;
+}
+
+// Asigna tamaños recorriendo los items ya combinados. Los rectángulos
+// verticales (tall / vtall) solo se reparten entre fotos y videos cuya
+// orientación medida sea "portrait" — cualquier otra orientación (o una
+// medición fallida) va a una forma no vertical. Cada grupo (fotos
+// portrait, fotos no-portrait, colores) lleva su propio cursor para que
+// la variedad de formas no dependa de la posición global.
+function assignSizes(items){
+  let portraitIdx = 0, otherIdx = 0, colorIdx = 0;
+  items.forEach(item => {
+    if (item.type === 'video'){
+      item.size = item.orientation === 'portrait' ? 'vtall' : 'wide';
+    } else if (item.type === 'photo'){
+      if (item.orientation === 'portrait'){
+        item.size = PORTRAIT_PHOTO_SIZES[portraitIdx++ % PORTRAIT_PHOTO_SIZES.length];
+      } else {
+        item.size = OTHER_PHOTO_SIZES[otherIdx++ % OTHER_PHOTO_SIZES.length];
+      }
+    } else {
+      item.size = COLOR_SIZES[colorIdx++ % COLOR_SIZES.length];
+    }
+  });
+  return items;
+}
+
+function renderGrid(section, cat, items){
+  const grid = document.createElement('div');
+  grid.className = 'mosaic';
+  items.forEach(item => {
+    if (item.type === 'photo'){
+      const fig = document.createElement('figure');
+      fig.className = `cell c-${item.size}`;
+      fig.innerHTML = `<img loading="lazy" src="${imgUrl(item.id, 600)}" alt="${cat.title}">`;
+      fig.addEventListener('click', () => openLightbox(imgUrl(item.id, 1600)));
+      grid.appendChild(fig);
+    } else if (item.type === 'video'){
+      const div = document.createElement('div');
+      div.className = `cell cell-video c-${item.size}`;
+      div.innerHTML = `<iframe src="${vidUrl(item.id)}" loading="lazy" allow="autoplay" allowfullscreen title="${cat.title} — video ${item.n}"></iframe>`;
+      grid.appendChild(div);
+    } else {
+      const div = document.createElement('div');
+      div.className = `cell cell-color c-${item.size}`;
+      div.style.background = item.color;
+      div.setAttribute('aria-hidden', 'true');
+      grid.appendChild(div);
+    }
+  });
+  section.appendChild(grid);
+}
+
 CATEGORIES.forEach(cat => {
   // nav pill
   const a = document.createElement('a');
@@ -352,7 +486,7 @@ CATEGORIES.forEach(cat => {
   a.textContent = cat.title;
   navEl.appendChild(a);
 
-  // section
+  // section (el grid se llena async, una vez medidas las orientaciones)
   const section = document.createElement('section');
   section.className = 'category';
   section.id = cat.key;
@@ -360,91 +494,31 @@ CATEGORIES.forEach(cat => {
   const totalPhotos = cat.photosTotal || cat.photos.length;
   const totalVideos = cat.videosTotal || cat.videos.length;
 
-  section.innerHTML = `
-    <div class="cat-head">
-      <div>
-        <h2>${cat.title}</h2>
-        <span class="cat-count">${totalPhotos} fotos · ${totalVideos} videos en Drive</span>
-      </div>
-      <a class="drive-link" href="${folderUrl(cat.folder)}" target="_blank" rel="noopener">Ver todo en Drive &rarr;</a>
+  const head = document.createElement('div');
+  head.className = 'cat-head';
+  head.innerHTML = `
+    <div>
+      <h2>${cat.title}</h2>
+      <span class="cat-count mono">${totalPhotos} fotos · ${totalVideos} videos en Drive</span>
     </div>
+    <a class="drive-link" href="${folderUrl(cat.folder)}" target="_blank" rel="noopener">Ver todo en Drive &rarr;</a>
   `;
-
-  if (cat.photos.length){
-    const h = document.createElement('h3');
-    h.className = 'subhead';
-    h.textContent = 'Fotos destacadas';
-    section.appendChild(h);
-
-    const grid = document.createElement('div');
-    grid.className = 'photo-grid';
-    cat.photos.forEach(id => {
-      const fig = document.createElement('figure');
-      fig.innerHTML = `<img loading="lazy" src="${imgUrl(id, 500)}" data-full="${imgUrl(id, 1600)}" alt="${cat.title}">`;
-      fig.addEventListener('click', () => openLightbox(fig.querySelector('img').dataset.full));
-      grid.appendChild(fig);
-    });
-    section.appendChild(grid);
-  }
-
-  if (cat.videos.length){
-    const h = document.createElement('h3');
-    h.className = 'subhead';
-    h.textContent = 'Videos destacados';
-    section.appendChild(h);
-
-    const grid = document.createElement('div');
-    grid.className = 'video-grid';
-    cat.videos.forEach((id, i) => {
-      const card = document.createElement('div');
-      card.className = 'video-card';
-      card.innerHTML = `
-        <div class="frame-wrap">
-          <iframe src="${vidUrl(id)}" loading="lazy" allow="autoplay" allowfullscreen></iframe>
-          <button class="fs-tap" aria-label="Reproducir video en pantalla completa" type="button"></button>
-        </div>
-        <div class="label">${cat.title} · Video ${i+1}</div>
-      `;
-      grid.appendChild(card);
-    });
-    section.appendChild(grid);
-  }
-
+  section.appendChild(head);
   mainEl.appendChild(section);
+
+  // Mide la orientación real de cada foto y de la miniatura de cada
+  // video antes de decidir qué celdas pueden ser rectángulos verticales.
+  Promise.all([
+    Promise.all(cat.photos.map(id => measureOrientation(imgUrl(id, 200)))),
+    Promise.all(cat.videos.map(id => measureOrientation(imgUrl(id, 200))))
+  ]).then(([photoOrientations, videoOrientations]) => {
+    const items = assignSizes(buildItems(cat, photoOrientations, videoOrientations));
+    if (items.length) renderGrid(section, cat, items);
+  });
 });
 
-// On mobile, Google Drive's embedded video player switches to a cramped
-// "compact" UI while playing inline (a permanent dark scrim, a seek bar
-// pinned to the top, no controls that fade away) once its rendered width
-// drops much below ~450px — which is most phones, even edge-to-edge. We
-// can't touch that player's own CSS/DOM (it's a cross-origin iframe, off
-// limits by browser security), so instead we catch the very first tap
-// before it reaches Drive and push the iframe itself into fullscreen.
-// Drive's player generally switches to its full "theater" UI (auto-hiding
-// controls, no scrim) once it detects it's in the Fullscreen API state,
-// regardless of the phone's screen width. The tap-catcher button is only
-// shown on mobile (see the @media rule above) — desktop already plays
-// inline correctly and is left untouched.
-function setupFullscreenTap(card){
-  const iframe = card.querySelector('iframe');
-  const tapBtn = card.querySelector('.fs-tap');
-  if (!iframe || !tapBtn) return;
-  tapBtn.addEventListener('click', () => {
-    const request = iframe.requestFullscreen
-      || iframe.webkitRequestFullscreen
-      || iframe.webkitEnterFullscreen; // older iOS Safari <video>-style API, harmless if absent
-    if (!request){
-      tapBtn.remove(); // no Fullscreen API support: fall back to Drive's own inline UI
-      return;
-    }
-    Promise.resolve(request.call(iframe)).catch(() => {}).then(() => {
-      tapBtn.remove(); // let the (now fullscreen) iframe handle every tap from here on
-    });
-  });
-}
-document.querySelectorAll('.video-card').forEach(setupFullscreenTap);
-
-// lightbox behavior
+// lightbox behavior (solo fotos — los videos van embebidos directo en
+// el mosaico como pidió Ernesto)
 const lightbox = document.getElementById('lightbox');
 const lightboxImg = document.getElementById('lightboxImg');
 function openLightbox(src){
