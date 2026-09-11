@@ -367,6 +367,12 @@ function videoCoverStyle(item){
 // Si el script del SDK no llegó a cargar (sin red, bloqueado, etc.), se
 // quita la capa de click y el iframe queda con su comportamiento nativo
 // como respaldo, en vez de dejar el video sin forma de reproducirse.
+// Registro global de todos los reproductores Vimeo del sitio (de todas
+// las secciones). Sirve para que, al darle play a un video, se pausen
+// automáticamente todos los demás que estén sonando — así solo se
+// reproduce un video a la vez y nunca hay que adivinar cuál parar.
+const allPlayers = [];
+
 function initVimeoPlayer(cellEl){
   const iframe = cellEl.querySelector('iframe');
   const layer = cellEl.querySelector('.video-click-layer');
@@ -380,10 +386,20 @@ function initVimeoPlayer(cellEl){
     playing = v;
     layer.classList.toggle('is-playing', v);
   };
+  const entry = { player, isPlaying: () => playing };
+  allPlayers.push(entry);
   layer.addEventListener('click', () => {
     (playing ? player.pause() : player.play()).catch(() => {});
   });
-  player.on('play', () => setPlaying(true));
+  player.on('play', () => {
+    setPlaying(true);
+    // Pausa cualquier otro video que estuviera reproduciéndose.
+    allPlayers.forEach(other => {
+      if (other.player !== player && other.isPlaying()){
+        other.player.pause().catch(() => {});
+      }
+    });
+  });
   player.on('pause', () => setPlaying(false));
   player.on('ended', () => setPlaying(false));
 }
@@ -548,10 +564,49 @@ function interleave(a, b){
 }
 
 // Combina fotos y videos (ya con su orientación medida) en una sola
-// lista, repartiéndolos proporcionalmente entre sí (en vez de todas las
-// fotos seguidas y luego todos los videos seguidos) e intercalando
-// bloques de color decorativos cada 3 elementos (como los rellenos
-// negros/de color de la referencia).
+// lista, repartiéndolos proporcionalmente entre sí con el mismo
+// algoritmo tipo Bresenham (en vez de todas las fotos seguidas y luego
+// todos los videos seguidos). Los bloques de color decorativos se
+// generan aparte (misma cantidad que antes: uno cada ~3 elementos) y se
+// reparten sobre esa lista con el mismo algoritmo de interleave, en vez
+// de insertarlos en una cadencia fija cada 3 — así también su
+// distribución queda proporcional a lo largo de toda la sección.
+// Evita que más de `maxRun` items consecutivos del mismo `type` queden
+// juntos en la lista: cuando encuentra una racha más larga, intercambia
+// el item sobrante con el siguiente item de otro tipo que encuentre más
+// adelante (nunca elimina ni duplica nada, solo reordena). El grid usa
+// `grid-auto-flow: dense` en orden de lista, así que romper las rachas
+// aquí es lo que evita que se amontonen 3 o 4 bloques del mismo tipo en
+// una misma columna del mosaico. Corre varias pasadas porque un swap
+// puede crear una racha nueva más adelante.
+function capConsecutiveType(items, type, maxRun){
+  const arr = items.slice();
+  let changed = true;
+  let guard = 0;
+  while (changed && guard < 10){
+    changed = false;
+    guard++;
+    let run = 0;
+    for (let i = 0; i < arr.length; i++){
+      if (arr[i].type === type){
+        run++;
+        if (run > maxRun){
+          let j = i + 1;
+          while (j < arr.length && arr[j].type === type) j++;
+          if (j < arr.length){
+            const tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+            changed = true;
+          }
+          run = 0;
+        }
+      } else {
+        run = 0;
+      }
+    }
+  }
+  return arr;
+}
+
 function buildItems(cat, photoOrientations, videoOrientations){
   const photoItems = cat.photos.map((id, i) => ({ type: 'photo', id, orientation: photoOrientations[i].orientation }));
   const videoItems = cat.videos.map((ref, i) => {
@@ -560,18 +615,16 @@ function buildItems(cat, photoOrientations, videoOrientations){
     return { type: 'video', id, h, n: i + 1, orientation: vo.orientation, natW: vo.w, natH: vo.h };
   });
   const base = interleave(photoItems, videoItems);
-  const withDecor = [];
-  let colorIdx = 0;
-  base.forEach((item, i) => {
-    withDecor.push(item);
-    if ((i + 1) % 3 === 0){
-      withDecor.push({ type: 'color', color: PALETTE[colorIdx % PALETTE.length] });
-      colorIdx++;
-    }
-  });
+  const colorCount = Math.floor(base.length / 3);
+  const colorItems = [];
+  for (let i = 0; i < colorCount; i++){
+    colorItems.push({ type: 'color', color: PALETTE[i % PALETTE.length] });
+  }
+  let withDecor = interleave(base, colorItems);
+  withDecor = capConsecutiveType(withDecor, 'color', 2);
   // remate: si la categoría no alcanzó ni un bloque de color, agrega uno.
   if (!withDecor.some(it => it.type === 'color') && base.length){
-    withDecor.push({ type: 'color', color: PALETTE[0] });
+    withDecor = withDecor.concat([{ type: 'color', color: PALETTE[0] }]);
   }
   return withDecor;
 }
@@ -640,14 +693,36 @@ function fillGridGaps(grid){
       }
     }
   });
+  // Rellena huecos columna por columna: un tramo vertical de 1 o 2
+  // celdas vacías se llena con cuadritos sm sueltos (como antes), pero
+  // un tramo de 3 o más se rellena con UN solo bloque de color que
+  // abarca todo el tramo (grid-row: inicio / span N) en vez de varios
+  // cuadritos del mismo tamaño pegados — así nunca quedan más de 2
+  // bloques de color contiguos en una misma columna.
   let colorIdx = 0;
-  for (let r = 1; r <= maxRow; r++){
-    for (let c = 1; c <= cols; c++){
-      if (!occupied.has(`${r},${c}`)){
+  for (let c = 1; c <= cols; c++){
+    let r = 1;
+    while (r <= maxRow){
+      if (occupied.has(`${r},${c}`)){ r++; continue; }
+      const runStart = r;
+      let runLen = 0;
+      while (r <= maxRow && !occupied.has(`${r},${c}`)){ runLen++; r++; }
+      if (runLen <= 2){
+        for (let k = 0; k < runLen; k++){
+          const filler = document.createElement('div');
+          filler.className = 'cell cell-color c-sm';
+          filler.style.gridColumn = `${c} / span 1`;
+          filler.style.gridRow = `${runStart + k} / span 1`;
+          filler.style.background = PALETTE[colorIdx % PALETTE.length];
+          filler.setAttribute('aria-hidden', 'true');
+          grid.appendChild(filler);
+          colorIdx++;
+        }
+      } else {
         const filler = document.createElement('div');
-        filler.className = 'cell cell-color c-sm';
+        filler.className = 'cell cell-color';
         filler.style.gridColumn = `${c} / span 1`;
-        filler.style.gridRow = `${r} / span 1`;
+        filler.style.gridRow = `${runStart} / span ${runLen}`;
         filler.style.background = PALETTE[colorIdx % PALETTE.length];
         filler.setAttribute('aria-hidden', 'true');
         grid.appendChild(filler);
@@ -735,6 +810,16 @@ const navLinksByKey = {};
 navEl.querySelectorAll('a[data-nav-key]').forEach(a => { navLinksByKey[a.dataset.navKey] = a; });
 function setActiveNav(key){
   Object.values(navLinksByKey).forEach(a => a.classList.toggle('active', a.dataset.navKey === key));
+  // Solo en mobile: el menú es horizontal y se puede desbordar, así que
+  // si la sección activa quedó muy a la derecha (fuera de vista), desliza
+  // el menú para que su pill quede justificado del lado izquierdo, justo
+  // debajo del logotipo.
+  if (window.matchMedia('(max-width: 620px)').matches){
+    const activeLink = navLinksByKey[key];
+    if (activeLink){
+      activeLink.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
+    }
+  }
 }
 const sectionObserver = new IntersectionObserver((entries) => {
   entries.forEach(entry => {
