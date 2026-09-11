@@ -130,6 +130,7 @@
     transition: background .12s ease, color .12s ease;
   }
   nav.catnav a:hover{ background: #fff; color: #000; }
+  nav.catnav a.active{ background: var(--c-amarillo); color: #000; border-color: #000; }
 
   /* ---------- Cuerpo: mosaico full-bleed, sin padding lateral ---------- */
   main{ width: 100%; }
@@ -690,6 +691,7 @@ CATEGORIES.forEach(cat => {
   const a = document.createElement('a');
   a.href = `#${cat.key}`;
   a.textContent = cat.title;
+  a.dataset.navKey = cat.key;
   navEl.appendChild(a);
 
   // section (el grid se llena async, una vez medidas las orientaciones)
@@ -725,6 +727,23 @@ CATEGORIES.forEach(cat => {
     const items = assignSizes(buildItems(cat, photoOrientations, videoOrientations));
     if (items.length) renderGrid(section, cat, items);
   });
+});
+
+// Resalta en el nav el pill de la sección que está a la vista (scrollspy):
+// fondo amarillo de la paleta, texto y borde en negro.
+const navLinksByKey = {};
+navEl.querySelectorAll('a[data-nav-key]').forEach(a => { navLinksByKey[a.dataset.navKey] = a; });
+function setActiveNav(key){
+  Object.values(navLinksByKey).forEach(a => a.classList.toggle('active', a.dataset.navKey === key));
+}
+const sectionObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) setActiveNav(entry.target.id);
+  });
+}, { rootMargin: '-40% 0px -40% 0px', threshold: 0 });
+CATEGORIES.forEach(cat => {
+  const section = document.getElementById(cat.key);
+  if (section) sectionObserver.observe(section);
 });
 
 // lightbox behavior (solo fotos — los videos van embebidos directo en
