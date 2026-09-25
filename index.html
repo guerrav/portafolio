@@ -209,6 +209,17 @@
        valores por defecto de respaldo. */
     top:0; left:0; width:100%; height:100%;
   }
+  /* Miniatura estática que se muestra en vez del iframe de Vimeo hasta
+     que se le da play (ver wireVideoCell): con ~50 videos en la página,
+     tener todos sus iframes/reproductores vivos a la vez es lo que hace
+     que el celular se caliente, así que solo existe UN iframe real a la
+     vez, creado hasta que alguien le da play. */
+  .video-poster{
+    position:absolute; inset:0;
+    background-size: cover;
+    background-position: center;
+    background-color: #111;
+  }
   /* Capa de click sobre el iframe: con controls=0 el player de Vimeo no
      dibuja NINGUNA interfaz propia, así que este es el único botón de
      play visible en el estado de previsualización — nada de barra de
@@ -361,47 +372,76 @@ function videoCoverStyle(item){
   return `width:100%; height:${hPct}%; top:${topPct}%; left:0;`;
 }
 
-// Conecta el SDK de Vimeo a un iframe recién insertado: hace que el
-// botón de play propio (dibujado en CSS, ver .video-play-badge) sea lo
-// único visible antes de darle play, y que un click alterne play/pause.
-// Si el script del SDK no llegó a cargar (sin red, bloqueado, etc.), se
-// quita la capa de click y el iframe queda con su comportamiento nativo
-// como respaldo, en vez de dejar el video sin forma de reproducirse.
-// Registro global de todos los reproductores Vimeo del sitio (de todas
-// las secciones). Sirve para que, al darle play a un video, se pausen
-// automáticamente todos los demás que estén sonando — así solo se
-// reproduce un video a la vez y nunca hay que adivinar cuál parar.
+// Conecta cada celda de video a su miniatura estática (.video-poster) en
+// vez de crear su iframe/reproductor de una vez: con ~50 videos en una
+// sola página, tenerlos todos "vivos" (iframe + SDK de Vimeo) al mismo
+// tiempo es lo que hace que el celular se caliente, aunque no se estén
+// reproduciendo. Con este patrón (el mismo truco que usa YouTube con sus
+// embeds "lite") solo se crea un iframe real cuando alguien le da play a
+// esa celda — y como ya solo puede sonar un video a la vez, en cuanto se
+// activa uno se destruye por completo el iframe/reproductor de
+// cualquier otro que hubiera quedado activo, así que en toda la página
+// nunca hay más de UN iframe de Vimeo vivo al mismo tiempo.
+//
+// Registro global de las celdas de video ya activadas (con iframe real)
+// en cualquier sección del sitio.
 const allPlayers = [];
 
-function initVimeoPlayer(cellEl){
-  const iframe = cellEl.querySelector('iframe');
+function wireVideoCell(cellEl, item, cat){
   const layer = cellEl.querySelector('.video-click-layer');
-  if (typeof Vimeo === 'undefined' || !Vimeo.Player){
-    if (layer) layer.remove();
-    return;
-  }
-  const player = new Vimeo.Player(iframe);
+  const poster = cellEl.querySelector('.video-poster');
+  let player = null;
   let playing = false;
   const setPlaying = (v) => {
     playing = v;
     layer.classList.toggle('is-playing', v);
   };
-  const entry = { player, isPlaying: () => playing };
-  allPlayers.push(entry);
-  layer.addEventListener('click', () => {
-    (playing ? player.pause() : player.play()).catch(() => {});
-  });
-  player.on('play', () => {
-    setPlaying(true);
-    // Pausa cualquier otro video que estuviera reproduciéndose.
-    allPlayers.forEach(other => {
-      if (other.player !== player && other.isPlaying()){
-        other.player.pause().catch(() => {});
-      }
+  function destroy(){
+    if (player){
+      try { player.unload(); } catch(e){}
+      player = null;
+    }
+    const iframe = cellEl.querySelector('iframe');
+    if (iframe) iframe.remove();
+    if (poster) poster.style.display = '';
+    setPlaying(false);
+    const idx = allPlayers.indexOf(entry);
+    if (idx >= 0) allPlayers.splice(idx, 1);
+  }
+  const entry = { cell: cellEl, destroy };
+  function activate(){
+    if (typeof Vimeo === 'undefined' || !Vimeo.Player) return;
+    if (poster) poster.style.display = 'none';
+    const iframe = document.createElement('iframe');
+    iframe.src = `${vidUrl(item.id, item.h)}&autoplay=1`;
+    iframe.style.cssText = videoCoverStyle(item);
+    iframe.loading = 'lazy';
+    iframe.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media');
+    iframe.allowFullscreen = true;
+    iframe.referrerPolicy = 'strict-origin-when-cross-origin';
+    iframe.title = `${cat.title} — video ${item.n}`;
+    cellEl.insertBefore(iframe, poster);
+    player = new Vimeo.Player(iframe);
+    allPlayers.push(entry);
+    player.on('play', () => {
+      setPlaying(true);
+      // Destruye por completo cualquier otro video que hubiera quedado
+      // activado (no solo lo pausa) — así nunca queda más de un iframe
+      // de Vimeo vivo en toda la página.
+      allPlayers.slice().forEach(other => {
+        if (other !== entry) other.destroy();
+      });
     });
+    player.on('pause', () => setPlaying(false));
+    player.on('ended', () => setPlaying(false));
+  }
+  layer.addEventListener('click', () => {
+    if (!player){
+      activate();
+    } else {
+      (playing ? player.pause() : player.play()).catch(() => {});
+    }
   });
-  player.on('pause', () => setPlaying(false));
-  player.on('ended', () => setPlaying(false));
 }
 
 // Separa un item de la lista "id/hash" de Vimeo en sus dos partes.
@@ -485,10 +525,13 @@ function measureVimeoOrientation(id, h){
         else if (w > hgt * 1.08) orientation = 'landscape';
         else orientation = 'square';
       }
-      return { w, h: hgt, orientation };
+      // thumbnail_url_with_play_button / thumbnail_url: mismo endpoint
+      // oEmbed que ya se consultaba para la orientación, aprovechado
+      // también para tener una miniatura estática (ver .video-poster).
+      return { w, h: hgt, orientation, thumb: data.thumbnail_url || '' };
     })
-    .catch(() => ({ w: 0, h: 0, orientation: 'landscape' }));
-  const timeout = new Promise((resolve) => setTimeout(() => resolve({ w: 0, h: 0, orientation: 'landscape' }), 5000));
+    .catch(() => ({ w: 0, h: 0, orientation: 'landscape', thumb: '' }));
+  const timeout = new Promise((resolve) => setTimeout(() => resolve({ w: 0, h: 0, orientation: 'landscape', thumb: '' }), 5000));
   return Promise.race([fetchPromise, timeout]);
 }
 
@@ -612,7 +655,7 @@ function buildItems(cat, photoOrientations, videoOrientations){
   const videoItems = cat.videos.map((ref, i) => {
     const { id, h } = parseVimeoRef(ref);
     const vo = videoOrientations[i];
-    return { type: 'video', id, h, n: i + 1, orientation: vo.orientation, natW: vo.w, natH: vo.h };
+    return { type: 'video', id, h, n: i + 1, orientation: vo.orientation, natW: vo.w, natH: vo.h, thumb: vo.thumb };
   });
   const base = interleave(photoItems, videoItems);
   const colorCount = Math.floor(base.length / 3);
@@ -745,10 +788,10 @@ function renderGrid(section, cat, items){
     } else if (item.type === 'video'){
       const div = document.createElement('div');
       div.className = `cell cell-video c-${item.size}`;
-      const coverStyle = videoCoverStyle(item);
-      div.innerHTML = `<iframe src="${vidUrl(item.id, item.h)}" style="${coverStyle}" loading="lazy" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" title="${cat.title} — video ${item.n}"></iframe><div class="video-click-layer"><span class="video-play-badge" aria-hidden="true"></span></div>`;
+      const posterBg = item.thumb ? `background-image:url('${item.thumb}');` : '';
+      div.innerHTML = `<div class="video-poster" style="${posterBg}"></div><div class="video-click-layer"><span class="video-play-badge" aria-hidden="true"></span></div>`;
       grid.appendChild(div);
-      initVimeoPlayer(div);
+      wireVideoCell(div, item, cat);
     } else {
       const div = document.createElement('div');
       div.className = `cell cell-color c-${item.size}`;
