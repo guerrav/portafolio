@@ -514,7 +514,12 @@ function measureOrientation(url){
 // del video y así decidir su orientación. Si el request falla o tarda
 // demasiado, se asume horizontal por seguridad, igual que con fotos.
 function measureVimeoOrientation(id, h){
-  const oembedUrl = `https://vimeo.com/api/oembed.json?url=${encodeURIComponent('https://vimeo.com/' + id + (h ? '/' + h : ''))}`;
+  // width=1280: le pide a Vimeo una miniatura de mayor resolución (por
+  // default el oEmbed regresa una muy chica, ~295px de ancho, que se ve
+  // borrosa al estirarla para cubrir una celda grande del mosaico). El
+  // ratio ancho/alto que se usa para medir la orientación no cambia por
+  // esto — Vimeo solo escala la miniatura, no recorta el video.
+  const oembedUrl = `https://vimeo.com/api/oembed.json?url=${encodeURIComponent('https://vimeo.com/' + id + (h ? '/' + h : ''))}&width=1280`;
   const fetchPromise = fetch(oembedUrl)
     .then(r => r.ok ? r.json() : Promise.reject(new Error('oEmbed ' + r.status)))
     .then(data => {
